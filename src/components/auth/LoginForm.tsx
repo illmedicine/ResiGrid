@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { doc, getDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { db } from "@/lib/firebase/config";
 import { signInWithEmail, signInWithGoogle } from "@/lib/firebase/auth";
-import type { UserDoc } from "@/lib/types/models";
+import { useAuth } from "@/lib/firebase/hooks";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -21,6 +19,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const { user, userDoc } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,44 +29,37 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
-  async function routeByRole(uid: string) {
-    const snap = await getDoc(doc(db, "users", uid));
-    const role = snap.exists() ? (snap.data() as UserDoc).role : "tenant";
-
+  // Handles the redirect return from signInWithGoogle — once auth state
+  // resolves after coming back from Google OAuth, route to the portal.
+  useEffect(() => {
+    if (!user || !userDoc) return;
     const pendingClaim = sessionStorage.getItem("resigrid_pending_claim");
-    if (pendingClaim && role === "property_manager") {
+    if (pendingClaim && userDoc.role === "property_manager") {
       sessionStorage.removeItem("resigrid_pending_claim");
       router.push(`/claim/?token=${pendingClaim}`);
       return;
     }
-    router.push(role === "tenant" ? "/tenant/dashboard" : "/pm/dashboard");
-  }
+    router.push(userDoc.role === "tenant" ? "/tenant/dashboard" : "/pm/dashboard");
+  }, [user, userDoc, router]);
 
   async function onSubmit(values: FormValues) {
     setError(null);
     setSubmitting(true);
     try {
-      const user = await signInWithEmail(values.email, values.password);
-      await routeByRole(user.uid);
+      await signInWithEmail(values.email, values.password);
+      // Routing handled by the useEffect above once userDoc loads.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
-    } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleGoogle() {
+  function handleGoogle() {
     setError(null);
     setSubmitting(true);
-    try {
-      // Existing users keep their stored role; new Google sign-ins default to tenant.
-      const user = await signInWithGoogle("tenant");
-      await routeByRole(user.uid);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
-    } finally {
-      setSubmitting(false);
-    }
+    // Navigates away — browser returns here after Google OAuth and the
+    // useEffect above handles routing once auth state resolves.
+    signInWithGoogle("tenant");
   }
 
   return (
@@ -90,7 +82,7 @@ export function LoginForm() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Button type="submit" disabled={submitting} className="w-full">
-        Log in
+        {submitting ? "Signing in…" : "Log in"}
       </Button>
 
       <div className="flex items-center gap-3 text-xs text-neutral-600">

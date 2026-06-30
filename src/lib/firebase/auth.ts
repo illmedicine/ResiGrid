@@ -2,14 +2,15 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "./config";
 import type { UserDoc, UserRole } from "@/lib/types/models";
 
-async function ensureUserDoc(
+// Exported so AuthProvider can call it after the redirect result resolves.
+export async function ensureUserDoc(
   uid: string,
   role: UserRole,
   email: string,
@@ -49,17 +50,16 @@ export async function signInWithEmail(email: string, password: string) {
   return cred.user;
 }
 
-export async function signInWithGoogle(role: UserRole) {
+// GitHub Pages (and many static hosts) set Cross-Origin-Opener-Policy:
+// same-origin which breaks signInWithPopup's window.closed polling.
+// signInWithRedirect navigates the current tab to Google and back, avoiding
+// the COOP restriction entirely. The role is stored in sessionStorage so it
+// survives the cross-origin redirect and can be read in AuthProvider when
+// the result resolves.
+export function signInWithGoogle(role: UserRole): void {
+  sessionStorage.setItem("resigrid_pending_role", role);
   const provider = new GoogleAuthProvider();
-  const cred = await signInWithPopup(auth, provider);
-  await ensureUserDoc(
-    cred.user.uid,
-    role,
-    cred.user.email ?? "",
-    cred.user.displayName ?? "",
-    cred.user.photoURL ?? undefined,
-  );
-  return cred.user;
+  void signInWithRedirect(auth, provider);
 }
 
 export async function signOut() {

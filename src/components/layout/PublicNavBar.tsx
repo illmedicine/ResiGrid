@@ -1,12 +1,10 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
 
 export function PublicNavBar() {
   return (
-    <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:px-8">
-      <Link href="/" className="text-lg font-bold text-navy-900">
-        Resi<span className="text-orange-500">Grid</span>
-      </Link>
+    <header className="relative flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 md:px-8 overflow-visible">
+      <Logo size={56} href="/" />
       <nav className="flex items-center gap-2">
         <Button href="/listings" variant="ghost" size="sm" className="hidden sm:inline-flex">
           Browse Listings

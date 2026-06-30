@@ -7,6 +7,7 @@ import { LogOut, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { signOut } from "@/lib/firebase/auth";
 import { useAuth } from "@/lib/firebase/hooks";
+import { Logo } from "@/components/ui/Logo";
 
 export interface PortalNavItem {
   href: string;
@@ -25,10 +26,9 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="hidden md:flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-3">
-        <Link href="/" className="text-lg font-bold text-navy-900">
-          Resi<span className="text-orange-500">Grid</span>
-        </Link>
+      {/* Desktop nav */}
+      <header className="hidden md:flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-2 overflow-visible">
+        <Logo size={52} href="/" />
         <nav className="flex items-center gap-1">
           {navItems.map((item) => {
             const active = pathname?.startsWith(item.href);
@@ -51,9 +51,7 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         </nav>
         <div className="flex items-center gap-3">
           {userDoc && (
-            <span className="text-sm text-neutral-600">
-              {userDoc.displayName}
-            </span>
+            <span className="text-sm text-neutral-600">{userDoc.displayName}</span>
           )}
           <button
             onClick={() => signOut()}
@@ -65,10 +63,9 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         </div>
       </header>
 
-      <header className="flex md:hidden items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
-        <Link href="/" className="text-base font-bold text-navy-900">
-          Resi<span className="text-orange-500">Grid</span>
-        </Link>
+      {/* Mobile top bar */}
+      <header className="flex md:hidden items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 overflow-visible">
+        <Logo size={44} href="/" />
         <button
           onClick={() => signOut()}
           aria-label="Sign out"
@@ -82,6 +79,7 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         {children}
       </main>
 
+      {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 inset-x-0 z-10 flex md:hidden items-stretch justify-around border-t border-neutral-200 bg-white">
         {navItems.map((item) => {
           const active = pathname?.startsWith(item.href);

@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "ResiGrid — Rent Payments & Property Management",
   description:
     "ResiGrid is a rent payment and property management portal connecting tenants and property managers.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

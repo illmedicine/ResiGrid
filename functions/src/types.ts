@@ -113,3 +113,20 @@ export interface SquareConnectionDoc {
   expiresAt?: string;
   connectedAt: number;
 }
+
+export interface PMEntitlement {
+  propertyId: string;
+  address: string;
+  paidUnits: number;
+  squarePaymentId: string;
+  amountPaid: number;
+  paidAt: number;
+}
+
+export interface PMSubscriptionDoc {
+  uid: string;
+  active: boolean;
+  entitlements: PMEntitlement[];
+  totalPaid: number;
+  updatedAt: number;
+}

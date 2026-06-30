@@ -211,3 +211,20 @@ export interface NoticeDoc {
   content: string;
   createdAt: number;
 }
+
+export interface PMEntitlement {
+  propertyId: string;
+  address: string;
+  paidUnits: number;
+  squarePaymentId: string;
+  amountPaid: number;
+  paidAt: number;
+}
+
+export interface PMSubscriptionDoc {
+  uid: string;
+  active: boolean;
+  entitlements: PMEntitlement[];
+  totalPaid: number;
+  updatedAt: number;
+}

@@ -1,3 +1,4 @@
+export { createPMSubscription } from "./payments/pmCheckout";
 export { createVoucher } from "./payments/createVoucher";
 export { claimVoucher } from "./payments/claimVoucher";
 export { getVoucherPreview } from "./payments/getVoucherPreview";

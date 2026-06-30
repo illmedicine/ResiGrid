@@ -124,6 +124,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // --- PM Subscriptions (write by Cloud Functions only; read by owner) ---
+    match /pmSubscriptions/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
     // --- Notices ---
     match /notices/{noticeId} {
       allow read: if isSignedIn();

@@ -16,7 +16,7 @@ export default function ListingsPage() {
           backgroundPosition: "center",
         }}
       >
-        <h1 className="text-2xl font-bold text-white md:text-4xl">
+        <h1 className="text-2xl font-bold text-orange-400 md:text-4xl">
           Find your next apartment
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm text-white/70 md:text-base">

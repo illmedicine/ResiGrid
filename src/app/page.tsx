@@ -32,7 +32,7 @@ export default function Home() {
           backgroundPosition: "center",
         }}
       >
-        <h1 className="mx-auto max-w-3xl text-3xl font-bold text-white md:text-5xl md:leading-tight">
+        <h1 className="mx-auto max-w-3xl text-3xl font-bold text-orange-400 md:text-5xl md:leading-tight">
           Rent payments, reputation, and property management —&nbsp;in one place.
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-sm text-white/75 md:text-base">
@@ -112,7 +112,7 @@ export default function Home() {
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-400">
           Find your next home
         </p>
-        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-white md:text-4xl">
+        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-orange-400 md:text-4xl">
           Browse listings from verified property managers
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-sm text-white/70 md:text-base">
@@ -173,7 +173,7 @@ export default function Home() {
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
           Build your reputation
         </p>
-        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-white md:text-4xl">
+        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-orange-400 md:text-4xl">
           Your payment history moves with you
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-sm text-white/75 md:text-base">
@@ -200,7 +200,7 @@ export default function Home() {
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-400">
           For property managers
         </p>
-        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-white md:text-4xl">
+        <h2 className="mx-auto max-w-2xl text-2xl font-bold text-orange-400 md:text-4xl">
           Manage your entire portfolio in one dashboard
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-sm text-white/70 md:text-base">
@@ -217,7 +217,7 @@ export default function Home() {
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <footer className="bg-navy-900 px-4 py-10 text-center text-sm text-white/60">
-        <p className="mb-3 font-semibold text-white">
+        <p className="mb-3 font-semibold text-orange-400">
           ResiGrid &mdash; Rent Payments &amp; Property Management
         </p>
         <p className="mb-4">
@@ -232,15 +232,15 @@ export default function Home() {
           </a>
         </p>
         <div className="flex items-center justify-center gap-4 text-xs text-white/50">
-          <Link href="/privacy" className="hover:text-white">
+          <Link href="/privacy" className="hover:text-orange-400">
             Privacy Policy
           </Link>
           <span>·</span>
-          <Link href="/listings" className="hover:text-white">
+          <Link href="/listings" className="hover:text-orange-400">
             Browse Listings
           </Link>
           <span>·</span>
-          <Link href="/login" className="hover:text-white">
+          <Link href="/login" className="hover:text-orange-400">
             Log in
           </Link>
         </div>

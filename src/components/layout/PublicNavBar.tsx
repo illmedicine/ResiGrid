@@ -9,11 +9,11 @@ export function PublicNavBar() {
         <Button href="/listings" variant="ghost" size="sm" className="hidden sm:inline-flex">
           Browse Listings
         </Button>
-        <Button href="/login" variant="outline" size="sm">
-          Log in
+        <Button href="/login?role=tenant" variant="outline" size="sm">
+          Tenant
         </Button>
-        <Button href="/signup" variant="primary" size="sm">
-          Sign up
+        <Button href="/login?role=property_manager" variant="primary" size="sm">
+          Property Manager
         </Button>
       </nav>
     </header>

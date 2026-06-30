@@ -42,13 +42,13 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/signup?role=tenant"
+            href="/login?role=tenant"
             className="rounded-lg bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600"
           >
             I&apos;m a Tenant
           </Link>
           <Link
-            href="/signup?role=property_manager"
+            href="/login?role=property_manager"
             className="rounded-lg border border-white/40 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20"
           >
             I&apos;m a Property Manager
@@ -58,7 +58,7 @@ export default function Home() {
 
       {/* ── Portal choice cards ───────────────────────────────────────── */}
       <section className="mx-auto -mt-8 grid w-full max-w-4xl gap-4 px-4 pb-12 sm:grid-cols-2 md:-mt-10">
-        <Link href="/signup?role=tenant" className="block">
+        <Link href="/login?role=tenant" className="block">
           <Card className="h-full p-6 transition-all hover:shadow-xl hover:-translate-y-1">
             <CardContent className="flex flex-col items-start gap-3 p-0">
               <span className="rounded-full bg-orange-100 p-3 text-orange-600">
@@ -78,7 +78,7 @@ export default function Home() {
           </Card>
         </Link>
 
-        <Link href="/signup?role=property_manager" className="block">
+        <Link href="/login?role=property_manager" className="block">
           <Card className="h-full p-6 transition-all hover:shadow-xl hover:-translate-y-1">
             <CardContent className="flex flex-col items-start gap-3 p-0">
               <span className="rounded-full bg-navy-900/10 p-3 text-navy-900">
@@ -181,7 +181,7 @@ export default function Home() {
           score — making your next rental application stand out from day one.
         </p>
         <Link
-          href="/signup?role=tenant"
+          href="/login?role=tenant"
           className="mt-8 inline-block rounded-lg bg-white px-7 py-3 text-sm font-semibold text-navy-900 hover:bg-orange-100"
         >
           Start building your score
@@ -208,7 +208,7 @@ export default function Home() {
           collect rent, and handle maintenance — all without switching tools.
         </p>
         <Link
-          href="/signup?role=property_manager"
+          href="/login?role=property_manager"
           className="mt-8 inline-block rounded-lg bg-orange-500 px-7 py-3 text-sm font-semibold text-white hover:bg-orange-600"
         >
           List your properties

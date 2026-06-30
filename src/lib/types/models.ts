@@ -1,0 +1,213 @@
+export type UserRole = "tenant" | "property_manager";
+
+export interface UserDoc {
+  uid: string;
+  role: UserRole;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  phone?: string;
+  createdAt: number;
+}
+
+export interface PropertyManagerDoc {
+  uid: string;
+  businessName: string;
+  payoutAccountRef?: string;
+  propertyIds: string[];
+}
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+export interface PropertyDoc {
+  id: string;
+  ownerId: string;
+  name: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  geo?: GeoPoint;
+  photos: string[];
+  amenities: string[];
+  unitIds: string[];
+  createdAt: number;
+}
+
+export type UnitStatus = "vacant" | "occupied";
+
+export interface UnitDoc {
+  id: string;
+  propertyId: string;
+  unitNumber: string;
+  beds: number;
+  baths: number;
+  rent: number;
+  sqft?: number;
+  status: UnitStatus;
+  currentTenantId?: string;
+  currentLeaseId?: string;
+}
+
+export type ListingStatus = "draft" | "published" | "filled" | "archived";
+
+export interface ListingDoc {
+  id: string;
+  unitId: string;
+  propertyId: string;
+  ownerId: string;
+  title: string;
+  description: string;
+  rent: number;
+  beds: number;
+  baths: number;
+  photos: string[];
+  city: string;
+  state: string;
+  zip: string;
+  geo?: GeoPoint;
+  featured: boolean;
+  status: ListingStatus;
+  createdAt: number;
+}
+
+export type ApplicationStatus =
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "denied"
+  | "withdrawn";
+
+export interface ApplicationDoc {
+  id: string;
+  tenantId: string;
+  listingId: string;
+  status: ApplicationStatus;
+  reputationSnapshot?: ReputationScoreDoc;
+  message?: string;
+  submittedAt: number;
+}
+
+export type LeaseSignStatus = "unsigned" | "tenant_signed" | "fully_signed";
+
+export interface LeaseDoc {
+  id: string;
+  unitId: string;
+  tenantId: string;
+  pmId: string;
+  documentUrl?: string;
+  signedStatus: LeaseSignStatus;
+  startDate: number;
+  endDate: number;
+  rentAmount: number;
+  dueDay: number;
+  createdAt: number;
+}
+
+export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
+
+export interface PaymentDoc {
+  id: string;
+  leaseId?: string;
+  tenantId: string;
+  amount: number;
+  method: "card" | "voucher";
+  status: PaymentStatus;
+  dueDate?: number;
+  paidDate?: number;
+  onTime?: boolean;
+  voucherId?: string;
+}
+
+export type VoucherStatus =
+  | "pending"
+  | "claimed"
+  | "paid_out"
+  | "expired"
+  | "refunded";
+
+export interface VoucherDoc {
+  id: string;
+  senderId: string;
+  recipientContact: string;
+  recipientUserId?: string;
+  amount: number;
+  squarePaymentId: string;
+  status: VoucherStatus;
+  claimToken: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface BadgeDoc {
+  id: string;
+  label: string;
+  description: string;
+  earnedAt: number;
+}
+
+export interface ReputationScoreDoc {
+  tenantId: string;
+  onTimeCount: number;
+  lateCount: number;
+  totalCount: number;
+  currentStreak: number;
+  badges: BadgeDoc[];
+  score: number;
+}
+
+export type MaintenancePriority = "low" | "medium" | "high" | "urgent";
+export type MaintenanceStatus =
+  | "submitted"
+  | "acknowledged"
+  | "in_progress"
+  | "resolved"
+  | "closed";
+
+export interface MaintenanceRequestDoc {
+  id: string;
+  unitId: string;
+  propertyId: string;
+  tenantId: string;
+  category: string;
+  item: string;
+  description: string;
+  photoUrls: string[];
+  status: MaintenanceStatus;
+  priority: MaintenancePriority;
+  createdAt: number;
+}
+
+export interface MessageThreadDoc {
+  id: string;
+  participantIds: string[];
+  propertyId?: string;
+  leaseId?: string;
+  lastMessageAt: number;
+  lastMessageSnippet?: string;
+}
+
+export interface MessageDoc {
+  id: string;
+  threadId: string;
+  senderId: string;
+  content: string;
+  createdAt: number;
+  readBy: string[];
+}
+
+export type NoticeScope = "all" | "property" | "unit";
+
+export interface NoticeDoc {
+  id: string;
+  pmId: string;
+  scope: NoticeScope;
+  scopeId?: string;
+  title: string;
+  content: string;
+  createdAt: number;
+}

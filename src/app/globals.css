@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0b1f3a;
+
+  /* ResiGrid brand palette */
+  --color-navy-950: #050b16;
+  --color-navy-900: #0b1f3a;
+  --color-navy-800: #122a4f;
+  --color-navy-700: #1a3a68;
+  --color-navy-600: #234c87;
+  --color-navy-500: #2f63ab;
+
+  --color-orange-600: #c95f0f;
+  --color-orange-500: #f2791d;
+  --color-orange-400: #f6963f;
+  --color-orange-300: #f9b06a;
+  --color-orange-100: #fde6cf;
+
+  --color-neutral-50: #f8f9fb;
+  --color-neutral-100: #eef1f5;
+  --color-neutral-200: #dde2e8;
+  --color-neutral-600: #5b6675;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-navy-950: var(--color-navy-950);
+  --color-navy-900: var(--color-navy-900);
+  --color-navy-800: var(--color-navy-800);
+  --color-navy-700: var(--color-navy-700);
+  --color-navy-600: var(--color-navy-600);
+  --color-navy-500: var(--color-navy-500);
+
+  --color-orange-600: var(--color-orange-600);
+  --color-orange-500: var(--color-orange-500);
+  --color-orange-400: var(--color-orange-400);
+  --color-orange-300: var(--color-orange-300);
+  --color-orange-100: var(--color-orange-100);
+
+  --color-neutral-50: var(--color-neutral-50);
+  --color-neutral-100: var(--color-neutral-100);
+  --color-neutral-200: var(--color-neutral-200);
+  --color-neutral-600: var(--color-neutral-600);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}

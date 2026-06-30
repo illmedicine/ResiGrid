@@ -1,0 +1,58 @@
+import {
+  type CollectionReference,
+  type DocumentData,
+  type FirestoreDataConverter,
+  type QueryDocumentSnapshot,
+  collection,
+} from "firebase/firestore";
+import { db } from "./config";
+import type {
+  ApplicationDoc,
+  LeaseDoc,
+  ListingDoc,
+  MaintenanceRequestDoc,
+  MessageDoc,
+  MessageThreadDoc,
+  NoticeDoc,
+  PaymentDoc,
+  PropertyDoc,
+  PropertyManagerDoc,
+  ReputationScoreDoc,
+  UnitDoc,
+  UserDoc,
+  VoucherDoc,
+} from "@/lib/types/models";
+
+function converter<T extends DocumentData>(): FirestoreDataConverter<T> {
+  return {
+    toFirestore: (data: T) => data,
+    fromFirestore: (snap: QueryDocumentSnapshot) => snap.data() as T,
+  };
+}
+
+function typedCollection<T extends DocumentData>(
+  path: string,
+): CollectionReference<T> {
+  return collection(db, path).withConverter(converter<T>());
+}
+
+export const usersCol = () => typedCollection<UserDoc>("users");
+export const propertyManagersCol = () =>
+  typedCollection<PropertyManagerDoc>("propertyManagers");
+export const propertiesCol = () => typedCollection<PropertyDoc>("properties");
+export const unitsCol = () => typedCollection<UnitDoc>("units");
+export const listingsCol = () => typedCollection<ListingDoc>("listings");
+export const applicationsCol = () =>
+  typedCollection<ApplicationDoc>("applications");
+export const leasesCol = () => typedCollection<LeaseDoc>("leases");
+export const paymentsCol = () => typedCollection<PaymentDoc>("payments");
+export const vouchersCol = () => typedCollection<VoucherDoc>("vouchers");
+export const reputationScoresCol = () =>
+  typedCollection<ReputationScoreDoc>("reputationScores");
+export const maintenanceRequestsCol = () =>
+  typedCollection<MaintenanceRequestDoc>("maintenanceRequests");
+export const messageThreadsCol = () =>
+  typedCollection<MessageThreadDoc>("messageThreads");
+export const threadMessagesCol = (threadId: string) =>
+  typedCollection<MessageDoc>(`messageThreads/${threadId}/messages`);
+export const noticesCol = () => typedCollection<NoticeDoc>("notices");

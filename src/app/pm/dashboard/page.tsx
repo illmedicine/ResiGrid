@@ -5,6 +5,7 @@ import { Building2, ClipboardList, FileText, Home as HomeIcon, Landmark, Megapho
 import { useAuth } from "@/lib/firebase/hooks";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
 import { Card, CardContent } from "@/components/ui/Card";
+import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 
 export default function PmDashboardPage() {
   const { user, userDoc } = useAuth();
@@ -13,7 +14,8 @@ export default function PmDashboardPage() {
   const totalUnits = properties.reduce((sum, p) => sum + p.unitIds.length, 0);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="relative flex flex-col gap-5">
+      <WatermarkLogo size={500} opacity={0.04} />
       <div>
         <h1 className="text-xl font-bold text-navy-900">
           Welcome{userDoc?.displayName ? `, ${userDoc.displayName}` : ""}

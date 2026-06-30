@@ -7,13 +7,15 @@ import { useActiveLease } from "@/lib/hooks/useActiveLease";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ReputationSummary } from "@/components/tenant/ReputationSummary";
+import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
   const { lease, loading } = useActiveLease(user?.uid);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="relative flex flex-col gap-5">
+      <WatermarkLogo size={500} opacity={0.04} />
       <div>
         <h1 className="text-xl font-bold text-navy-900">
           Welcome{userDoc?.displayName ? `, ${userDoc.displayName}` : ""}

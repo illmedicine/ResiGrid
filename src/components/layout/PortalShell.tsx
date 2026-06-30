@@ -75,7 +75,16 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         </button>
       </header>
 
-      <main className="flex-1 px-4 py-5 pb-24 md:px-8 md:py-6 md:pb-6">
+      <main
+        className="relative flex-1 px-4 py-5 pb-24 md:px-8 md:py-6 md:pb-6"
+        style={{
+          backgroundImage: `linear-gradient(rgba(248,249,251,0.96), rgba(248,249,251,0.96)),
+            url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
         {children}
       </main>
 

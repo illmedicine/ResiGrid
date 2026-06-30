@@ -5,12 +5,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { type User, getRedirectResult, onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { type User, onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "./config";
-import { ensureUserDoc } from "./auth";
 import type { UserDoc, UserRole } from "@/lib/types/models";
 
 interface AuthContextValue {
@@ -29,32 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Process the result from signInWithRedirect. This fires once per page load
-  // immediately after the user returns from Google's OAuth page; returns null
-  // on every other page load, so it's safe to call globally here.
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (!result?.user) return;
-        const role =
-          (sessionStorage.getItem("resigrid_pending_role") as UserRole | null) ??
-          "tenant";
-        sessionStorage.removeItem("resigrid_pending_role");
-        await ensureUserDoc(
-          result.user.uid,
-          role,
-          result.user.email ?? "",
-          result.user.displayName ?? "",
-          result.user.photoURL ?? undefined,
-        );
-      })
-      .catch(() => undefined);
-  }, []);
+  const creatingRef = useRef(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+      if (!firebaseUser) setUserDoc(null);
       setLoading(false);
     });
     return unsubAuth;
@@ -63,12 +43,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setUserDoc(null);
+      creatingRef.current = false;
       return;
     }
-    const unsubDoc = onSnapshot(doc(db, "users", user.uid), (snap) => {
-      setUserDoc(snap.exists() ? (snap.data() as UserDoc) : null);
-    });
-    return unsubDoc;
+
+    const userRef = doc(db, "users", user.uid);
+
+    const unsub = onSnapshot(
+      userRef,
+      async (snap) => {
+        if (snap.exists()) {
+          setUserDoc(snap.data() as UserDoc);
+          creatingRef.current = false;
+          return;
+        }
+
+        // Doc doesn't exist yet — create it. Prevent concurrent attempts.
+        if (creatingRef.current) return;
+        creatingRef.current = true;
+
+        // Role comes from sessionStorage (set before the Google redirect).
+        const role =
+          (sessionStorage.getItem("resigrid_pending_role") as UserRole | null) ??
+          "tenant";
+        sessionStorage.removeItem("resigrid_pending_role");
+
+        try {
+          await setDoc(userRef, {
+            uid: user.uid,
+            role,
+            displayName: user.displayName ?? user.email ?? "",
+            email: user.email ?? "",
+            photoURL: user.photoURL ?? null,
+            createdAt: Date.now(),
+            serverCreatedAt: serverTimestamp(),
+          });
+          // onSnapshot fires again with the new doc and sets userDoc.
+        } catch {
+          // Write failed (likely a rules issue) — reset so it retries.
+          creatingRef.current = false;
+        }
+      },
+      () => {
+        // Snapshot listener error — clear doc so UI can show an error state.
+        setUserDoc(null);
+        creatingRef.current = false;
+      },
+    );
+
+    return () => {
+      unsub();
+      creatingRef.current = false;
+    };
   }, [user]);
 
   return (

@@ -27,6 +27,18 @@ export function AuthGate() {
   const router = useRouter();
   const { user, userDoc, loading } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Safety valve: if user is authenticated but userDoc never arrives after
+  // 12 s, show a retry option rather than spinning forever.
+  useEffect(() => {
+    if (!user || userDoc) {
+      setTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => setTimedOut(true), 12_000);
+    return () => clearTimeout(t);
+  }, [user, userDoc]);
 
   const role = (params.get("role") as UserRole) ??
     (params.get("path") === "pm" ? "property_manager" : "tenant");
@@ -46,6 +58,27 @@ export function AuthGate() {
     }
     router.replace(ROLE_CONFIG[userDoc.role]?.portal ?? "/tenant/dashboard");
   }, [loading, user, userDoc, router]);
+
+  // Timed out waiting for user doc — show a clear error + retry.
+  if (timedOut && user && !userDoc) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-6 text-center">
+        <p className="text-sm font-medium text-red-600">
+          Couldn&apos;t finish setting up your account.
+        </p>
+        <p className="text-xs text-neutral-500">
+          This usually means Firestore rules haven&apos;t been deployed yet.
+          Check Firebase Console → Firestore → Rules, then try again.
+        </p>
+        <button
+          onClick={() => { setTimedOut(false); signInWithGoogle(role); }}
+          className="rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   // While loading auth state or waiting for user doc to propagate after
   // a fresh Google sign-in, show a neutral loading screen.

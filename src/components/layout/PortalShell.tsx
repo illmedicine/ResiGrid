@@ -26,54 +26,66 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Desktop nav */}
-      <header className="hidden md:flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-2 overflow-visible">
-        <Logo size={52} href="/" />
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => {
-            const active = pathname?.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-                  active
-                    ? "bg-navy-900 text-white"
-                    : "text-navy-900 hover:bg-neutral-100",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="flex items-center gap-3">
-          {userDoc && (
-            <span className="text-sm text-neutral-600">{userDoc.displayName}</span>
-          )}
-          <button
-            onClick={() => signOut()}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-900 hover:bg-neutral-100"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
+      {/* Desktop nav — logo overflows via absolute positioning */}
+      <div className="relative z-40 hidden md:block overflow-visible">
+        <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-2">
+          {/* Spacer to prevent nav items from sliding under the logo */}
+          <div className="w-[260px] shrink-0" />
+          <nav className="flex items-center gap-1">
+            {navItems.map((item) => {
+              const active = pathname?.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
+                    active
+                      ? "bg-navy-900 text-white"
+                      : "text-navy-900 hover:bg-neutral-100",
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="flex items-center gap-3">
+            {userDoc && (
+              <span className="text-sm text-neutral-600">{userDoc.displayName}</span>
+            )}
+            <button
+              onClick={() => signOut()}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-900 hover:bg-neutral-100"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </button>
+          </div>
+        </header>
+        {/* Logo: absolutely positioned to float over nav + page body */}
+        <div className="absolute left-4 md:left-6" style={{ top: "-10px", zIndex: 50 }}>
+          <Logo size={260} href="/" />
         </div>
-      </header>
+      </div>
 
       {/* Mobile top bar */}
-      <header className="flex md:hidden items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 overflow-visible">
-        <Logo size={44} href="/" />
-        <button
-          onClick={() => signOut()}
-          aria-label="Sign out"
-          className="rounded-lg p-2 text-navy-900 hover:bg-neutral-100"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
-      </header>
+      <div className="relative z-40 flex md:hidden overflow-visible">
+        <header className="flex w-full items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
+          <div className="w-[150px] shrink-0" />
+          <button
+            onClick={() => signOut()}
+            aria-label="Sign out"
+            className="rounded-lg p-2 text-navy-900 hover:bg-neutral-100"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="absolute left-3" style={{ top: "-8px", zIndex: 50 }}>
+          <Logo size={160} href="/" />
+        </div>
+      </div>
 
       <main
         className="relative flex-1 px-4 py-5 pb-24 md:px-8 md:py-6 md:pb-6"

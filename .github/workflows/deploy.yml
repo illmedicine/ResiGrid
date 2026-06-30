@@ -30,19 +30,11 @@ jobs:
       - name: Build (static export)
         run: npm run build
         env:
-          # Empty — resigrid.co is served from the root. Set to a path like
-          # /ResiGrid only if temporarily deploying to a GitHub Pages project path.
+          # Firebase web config and Square public IDs are hardcoded in source
+          # (they're public browser identifiers, safe to commit).
+          # No secrets needed here — sensitive keys live only in functions/.env.local
+          # and Firebase Functions secrets, never in the Next.js frontend.
           NEXT_PUBLIC_BASE_PATH: ""
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
-          NEXT_PUBLIC_SQUARE_APPLICATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
-          NEXT_PUBLIC_SQUARE_LOCATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
-          NEXT_PUBLIC_SQUARE_ENV: production
 
       - uses: actions/configure-pages@v5
 

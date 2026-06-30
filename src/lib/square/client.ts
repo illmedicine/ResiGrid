@@ -50,17 +50,14 @@ function loadSquareSdk(): Promise<void> {
   return sdkPromise;
 }
 
+// Square Application ID and Location ID are public browser identifiers — safe to commit.
+const SQUARE_APPLICATION_ID = "sq0idp--js2-VRPmjasfeN7tp039A";
+const SQUARE_LOCATION_ID = "LA83XYXM6FADM";
+
 export async function getSquarePayments(): Promise<SquarePayments> {
   await loadSquareSdk();
-  const applicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID;
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID;
-  if (!applicationId || !locationId) {
-    throw new Error(
-      "Square is not configured — set NEXT_PUBLIC_SQUARE_APPLICATION_ID and NEXT_PUBLIC_SQUARE_LOCATION_ID",
-    );
-  }
   if (!window.Square) {
     throw new Error("Square SDK failed to load");
   }
-  return window.Square.payments(applicationId, locationId);
+  return window.Square.payments(SQUARE_APPLICATION_ID, SQUARE_LOCATION_ID);
 }

@@ -4,14 +4,17 @@ import { type Firestore, getFirestore } from "firebase/firestore";
 import { type FirebaseStorage, getStorage } from "firebase/storage";
 import { type Functions, getFunctions } from "firebase/functions";
 
+// Firebase web config is a public browser identifier — safe to commit.
+// The sensitive pieces (Admin SDK private key, Square access token) live
+// only in functions/.env.local and Firebase secrets, never here.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyDOXEzMBE1uGRgIBFs4u0rJU95WOgMW95I",
+  authDomain: "resigrid-96c9c.firebaseapp.com",
+  projectId: "resigrid-96c9c",
+  storageBucket: "resigrid-96c9c.firebasestorage.app",
+  messagingSenderId: "518982670558",
+  appId: "1:518982670558:web:2e250d6f99e1642123ca4f",
+  measurementId: "G-Q63XPNYFTW",
 };
 
 export const firebaseApp: FirebaseApp =

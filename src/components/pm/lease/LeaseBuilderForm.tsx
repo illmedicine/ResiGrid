@@ -212,13 +212,10 @@ export function LeaseBuilderForm() {
         pmId: user.uid,
         unitId: values.unitId,
         propertyId: values.propertyId,
-        tenantId: values.tenantId,
         tenantName: values.tenantName,
         tenantEmail: values.tenantEmail,
         termType: values.termType,
-        customMonths: values.customMonths,
         startDate: startTimestamp,
-        endDate: endTimestamp,
         rent: values.rent,
         securityDeposit: values.securityDeposit,
         moveInFee: values.moveInFee,
@@ -232,7 +229,7 @@ export function LeaseBuilderForm() {
           internet: values.internetResponsibility,
         },
         pets: {
-          allowed: Boolean(values.petsAllowed === (true as unknown)),
+          allowed: values.petsAllowed,
           maxCount: values.petsMaxCount ?? 0,
           typesAllowed: values.petsTypesAllowed ?? "",
           deposit: values.petsDeposit ?? 0,
@@ -243,13 +240,17 @@ export function LeaseBuilderForm() {
           spaces: values.parkingSpaces ?? 0,
           monthlyFee: values.parkingMonthlyFee ?? 0,
         },
-        smokingAllowed: Boolean(values.smokingAllowed === (true as unknown)),
+        smokingAllowed: values.smokingAllowed,
         quietHoursStart: values.quietHoursStart,
         quietHoursEnd: values.quietHoursEnd,
         additionalTerms: values.additionalTerms,
         status: action === "send" ? "sent" : "draft",
         selectedClauses: Array.from(selectedClauses),
         createdAt: Date.now(),
+        // Spread optional fields only when defined — Firestore rejects undefined
+        ...(values.tenantId ? { tenantId: values.tenantId } : {}),
+        ...(values.customMonths != null ? { customMonths: values.customMonths } : {}),
+        ...(endTimestamp != null ? { endDate: endTimestamp } : {}),
         ...(action === "send" ? { sentAt: Date.now() } : {}),
       };
 
@@ -262,7 +263,6 @@ export function LeaseBuilderForm() {
           pmId: user.uid,
           name: values.templateName,
           termType: values.termType,
-          customMonths: values.customMonths,
           securityDepositMultiplier: 1,
           moveInFee: values.moveInFee,
           lateFeeDays: values.lateFeeDays,
@@ -275,6 +275,7 @@ export function LeaseBuilderForm() {
           quietHoursEnd: values.quietHoursEnd,
           additionalTerms: values.additionalTerms,
           createdAt: Date.now(),
+          ...(values.customMonths != null ? { customMonths: values.customMonths } : {}),
         };
         await setDoc(tmplRef, template);
       }

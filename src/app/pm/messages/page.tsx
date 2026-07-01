@@ -13,7 +13,7 @@ export default function PmMessagesPage() {
   if (!user) return null;
 
   return (
-    <div className="flex h-[calc(100vh-9rem)] flex-col gap-4 md:h-[calc(100vh-5rem)] md:flex-row">
+    <div className="flex h-[calc(100dvh-9rem)] flex-col gap-4 md:h-[calc(100dvh-5rem)] md:flex-row">
       <div
         className={cn(
           "w-full overflow-y-auto md:w-72 md:shrink-0",

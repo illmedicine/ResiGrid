@@ -16,9 +16,10 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "text-sm px-3 py-1.5 rounded-md",
-  md: "text-sm px-4 py-2.5 rounded-lg",
-  lg: "text-base px-5 py-3 rounded-lg",
+  // min-h ensures ≥44px touch targets on all button sizes (WCAG 2.5.5 / Apple HIG)
+  sm: "text-sm px-3 py-2 min-h-[44px] rounded-md",
+  md: "text-sm px-4 py-2.5 min-h-[44px] rounded-lg",
+  lg: "text-base px-5 py-3 min-h-[48px] rounded-lg",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

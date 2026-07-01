@@ -106,7 +106,7 @@ export default function Home() {
           backgroundImage: `linear-gradient(rgba(11,31,58,0.78), rgba(11,31,58,0.78)), url('${BG.tour}')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundAttachment: "fixed",
+          
         }}
       >
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-400">
@@ -167,7 +167,7 @@ export default function Home() {
           backgroundImage: `linear-gradient(rgba(11,31,58,0.75), rgba(242,121,29,0.35)), url('${BG.lifestyle}')`,
           backgroundSize: "cover",
           backgroundPosition: "center top",
-          backgroundAttachment: "fixed",
+          
         }}
       >
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-300">

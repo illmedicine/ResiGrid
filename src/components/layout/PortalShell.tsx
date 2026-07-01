@@ -82,26 +82,32 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
             <LogOut className="h-5 w-5" />
           </button>
         </header>
-        <div className="absolute left-3" style={{ top: "-8px", zIndex: 50 }}>
-          <Logo size={160} href="/" />
+        <div className="absolute left-3" style={{ top: "-6px", zIndex: 50 }}>
+          <Logo size={120} href="/" />
         </div>
       </div>
 
+      {/* pb-28 on mobile ensures content is never hidden by the bottom nav
+          (52px nav + safe area). calc() adds env() on top of the fixed rem. */}
       <main
-        className="relative flex-1 px-4 py-5 pb-24 md:px-8 md:py-6 md:pb-6"
+        className="relative flex-1 px-4 py-5 md:px-8 md:py-6"
         style={{
+          paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))",
           backgroundImage: `linear-gradient(rgba(248,249,251,0.96), rgba(248,249,251,0.96)),
             url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1920&q=80')`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundAttachment: "fixed",
         }}
       >
         {children}
       </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 inset-x-0 z-10 flex md:hidden items-stretch justify-around border-t border-neutral-200 bg-white">
+      {/* Mobile bottom nav — safe-area-inset-bottom handles iPhone home
+          indicator so nav items never sit behind the gesture bar */}
+      <nav
+        className="fixed bottom-0 inset-x-0 z-10 flex md:hidden items-stretch justify-around border-t border-neutral-200 bg-white"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         {navItems.map((item) => {
           const active = pathname?.startsWith(item.href);
           return (
@@ -109,12 +115,13 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium",
+                // min-h-[52px] ensures ≥44px touch target (WCAG requirement)
+                "flex flex-1 flex-col items-center justify-center gap-1 min-h-[52px] px-1 text-xs font-medium",
                 active ? "text-orange-500" : "text-neutral-600",
               )}
             >
               <item.icon className="h-5 w-5" />
-              {item.label}
+              <span className="leading-none">{item.label}</span>
             </Link>
           );
         })}

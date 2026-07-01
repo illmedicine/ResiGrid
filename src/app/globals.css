@@ -53,7 +53,48 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* Prevent iOS momentum scroll overscroll on the body */
+  overscroll-behavior-y: none;
 }
+
+/* ── Mobile UX globals ───────────────────────────────────────────────── */
+
+/* Remove iOS tap highlight flash on all interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Faster tap response — no 300ms delay */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Inputs: font-size ≥ 16px prevents iOS Safari from auto-zooming the
+   viewport when an input is focused. The text-sm class sets 14px which
+   triggers zoom — override it on mobile. */
+input, textarea, select {
+  font-size: 16px !important;
+}
+@media (min-width: 768px) {
+  input, textarea, select {
+    font-size: 0.875rem !important; /* back to text-sm on desktop */
+  }
+}
+
+/* Scrollable containers — momentum scroll on iOS */
+.overflow-y-auto, .overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe-area padding for bottom navigation (iPhone notch / home indicator) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Full-height sections — use dvh (dynamic viewport height) which accounts
+   for mobile browser chrome expanding/collapsing. */
+.h-dvh { height: 100dvh; }
+.min-h-dvh { min-height: 100dvh; }
 
 /* Logo float animation — simulates the badge hovering above the page */
 @keyframes logo-float {

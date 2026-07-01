@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ResiGrid</title>
+  <script>
+    // GitHub Pages SPA routing fix.
+    // Redirect 404s back to index with the path stored in sessionStorage
+    // so Next.js client-side router can restore the correct URL.
+    var path = window.location.pathname;
+    sessionStorage.setItem("spa_redirect", path);
+    window.location.replace("/");
+  </script>
+</head>
+<body></body>
+</html>

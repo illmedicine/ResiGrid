@@ -1,0 +1,18 @@
+{
+  "name": "ResiGrid — Rent Payments & Property Management",
+  "short_name": "ResiGrid",
+  "description": "Pay rent, manage properties, and build your rental reputation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1f3a",
+  "theme_color": "#0b1f3a",
+  "categories": ["finance", "lifestyle", "utilities"],
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-192.png",         "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png",         "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon.png",          "sizes": "512x512", "type": "image/png" }
+  ]
+}

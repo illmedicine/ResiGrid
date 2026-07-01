@@ -43,7 +43,7 @@ export function TrialBanner({ trial }: TrialBannerProps) {
             ? `⚠️ Free trial ends in ${timeLabel} — activate to keep your access.`
             : isUrgent
               ? `Trial ends in ${timeLabel}. Activate now to keep full access.`
-              : `🎉 Free trial — ${timeLabel} remaining. Full PM access included.`}
+              : `🎉 Free trial — ${timeLabel} remaining. Full Property Management access included.`}
         </span>
       </div>
 

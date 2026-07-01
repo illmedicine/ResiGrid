@@ -73,6 +73,9 @@ export interface ListingDoc {
   featured: boolean;
   status: ListingStatus;
   createdAt: number;
+  availableFrom?: number;
+  amenities?: string[];
+  addressLine1?: string;
   /** Source tag for non-ResiGrid listings ("hud_lihtc" or "demo"). */
   source?: "hud_lihtc" | "demo";
 }

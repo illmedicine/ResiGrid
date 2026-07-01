@@ -26,14 +26,14 @@ const TENANT_STEPS = [
   { emoji: "💳", color: "border-orange-400 bg-orange-500/10 text-orange-400", heading: "Pay Rent via ResiGrid", body: "Pay your landlord even if they're not on the platform yet. ResiGrid generates a secure claim link for them automatically." },
   { emoji: "📧", color: "border-neutral-400 bg-white/5 text-white",           heading: "Landlord Receives Claim Link", body: "Landlord claims their payment via the link — no ResiGrid account required to receive funds. But now they've seen the platform." },
   { emoji: "⭐", color: "border-orange-400 bg-orange-500/10 text-orange-400", heading: "Invite Credit Earned", body: "Your RGE Score immediately records an Invite Contribution — proof you brought a new stakeholder onto the grid." },
-  { emoji: "🏢", color: "border-orange-300 bg-orange-500/10 text-orange-300", heading: "Landlord Discovers PM Features", body: "Impressed by the automation, the landlord creates a full PM account — unlocking listings, leases, maintenance, and RGE screening." },
+  { emoji: "🏢", color: "border-orange-300 bg-orange-500/10 text-orange-300", heading: "Landlord Discovers Property Management Features", body: "Impressed by the automation, the landlord creates a full Property Management account — unlocking listings, leases, maintenance, and RGE screening." },
 ];
 
 const PM_STEPS = [
-  { emoji: "🏢", color: "border-navy-400 bg-navy-800 text-white",             heading: "PM Lists Property on ResiGrid", body: "Property manager activates their account ($40 one-time), publishes the listing, and gets an instant shareable application link." },
-  { emoji: "🔗", color: "border-navy-400 bg-navy-800 text-white",             heading: "PM Shares the Link", body: "Send the listing link via text, email, or social. Prospective tenants tap it and land directly on the property's ResiGrid page." },
+  { emoji: "🏢", color: "border-navy-400 bg-navy-800 text-white",             heading: "Property Manager Lists on ResiGrid", body: "Property manager activates their account ($40 one-time), publishes the listing, and gets an instant shareable application link." },
+  { emoji: "🔗", color: "border-navy-400 bg-navy-800 text-white",             heading: "Property Manager Shares the Link", body: "Send the listing link via text, email, or social. Prospective tenants tap it and land directly on the property's ResiGrid page." },
   { emoji: "👤", color: "border-orange-400 bg-orange-500/10 text-orange-400", heading: "Tenant Applies with RGE Score", body: "Tenant submits their application with their verified RGE Trust Profile attached — no paper, no credit bureau pull required." },
-  { emoji: "📋", color: "border-navy-400 bg-navy-800 text-white",             heading: "PM Reviews Score & Sends Lease", body: "PM screens applicants by RGE Score, selects their top pick, and sends a fully customised lease agreement with one click." },
+  { emoji: "📋", color: "border-navy-400 bg-navy-800 text-white",             heading: "Property Manager Reviews & Sends Lease", body: "Property manager screens applicants by RGE Score, selects their top pick, and sends a fully customised lease agreement with one click." },
   { emoji: "✅", color: "border-orange-400 bg-orange-500/10 text-orange-400", heading: "Tenant Signs, Pays & Earns", body: "Tenant e-signs, pays rent monthly through ResiGrid, and every on-time payment increments their RGE Score automatically." },
 ];
 

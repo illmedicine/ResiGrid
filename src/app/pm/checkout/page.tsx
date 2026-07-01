@@ -16,7 +16,7 @@ const REASONS = {
   trial: {
     eyebrow: "Activate before your trial ends",
     heading: "Lock in your access",
-    sub: "Pay once. No subscriptions. Keep all PM features forever.",
+    sub: "Pay once. No subscriptions. Keep all Property Management features forever.",
     urgentBanner: false,
   },
   default: {

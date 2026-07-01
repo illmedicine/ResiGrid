@@ -114,8 +114,13 @@ export function UnitRow({
         <div className="flex flex-wrap gap-2">
           {unit.status === "vacant" && (
             <>
-              <Button size="sm" variant="outline" onClick={handlePublish} disabled={publishing}>
-                {publishing ? "Publishing…" : "Publish listing"}
+              {/* Link to full listing form with photos, description & amenities */}
+              <Button
+                size="sm"
+                variant="primary"
+                href={`/pm/listings/new?unitId=${unit.id}&propertyId=${property.id}`}
+              >
+                Publish listing
               </Button>
               <Button
                 size="sm"

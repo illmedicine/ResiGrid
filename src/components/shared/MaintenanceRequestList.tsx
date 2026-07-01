@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { maintenanceRequestsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -32,7 +32,6 @@ export function MaintenanceRequestList({
     const q = query(
       maintenanceRequestsCol(),
       where(field, "==", scopeId),
-      orderBy("createdAt", "desc"),
     );
     const unsub = onSnapshot(
       q,

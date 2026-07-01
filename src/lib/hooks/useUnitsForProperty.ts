@@ -19,7 +19,7 @@ export function useUnitsForProperty(propertyId: string | undefined) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setUnits(snap.docs.map((d) => d.data()));
+        setUnits(snap.docs.map((d) => ({ ...d.data(), id: d.id } as UnitDoc)));
         setLoading(false);
       },
       () => setLoading(false),

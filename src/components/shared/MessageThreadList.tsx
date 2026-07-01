@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { messageThreadsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/utils/cn";
@@ -26,7 +26,6 @@ export function MessageThreadList({
     const q = query(
       messageThreadsCol(),
       where("participantIds", "array-contains", userId),
-      orderBy("lastMessageAt", "desc"),
     );
     const unsub = onSnapshot(
       q,

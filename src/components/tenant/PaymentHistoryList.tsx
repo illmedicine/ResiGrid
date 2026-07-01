@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { paymentsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -15,7 +15,6 @@ export function PaymentHistoryList({ tenantId }: { tenantId: string }) {
     const q = query(
       paymentsCol(),
       where("tenantId", "==", tenantId),
-      orderBy("paidDate", "desc"),
     );
     const unsub = onSnapshot(
       q,

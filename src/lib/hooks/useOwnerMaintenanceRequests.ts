@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { maintenanceRequestsCol, propertiesCol } from "@/lib/firebase/firestore";
 import type { MaintenanceRequestDoc } from "@/lib/types/models";
 
@@ -30,7 +30,6 @@ export function useOwnerMaintenanceRequests(ownerId: string | undefined) {
       const reqQ = query(
         maintenanceRequestsCol(),
         where("propertyId", "in", propertyIds),
-        orderBy("createdAt", "desc"),
       );
       unsubRequests = onSnapshot(
         reqQ,

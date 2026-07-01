@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc, arrayUnion, doc, updateDoc } from "firebase/firestore";
+import { arrayUnion, doc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { unitsCol } from "@/lib/firebase/firestore";
 import { Button } from "@/components/ui/Button";
@@ -40,8 +40,9 @@ export function AddUnitForm({
     setError(null);
     setSubmitting(true);
     try {
-      const ref = await addDoc(unitsCol(), {
-        id: "",
+      const ref = doc(unitsCol());
+      await setDoc(ref, {
+        id: ref.id,
         propertyId,
         unitNumber: values.unitNumber,
         beds: values.beds,

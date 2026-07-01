@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc, arrayUnion, doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { doc, setDoc } from "firebase/firestore";
 import { propertiesCol } from "@/lib/firebase/firestore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -25,7 +24,7 @@ export function AddPropertyForm({
   onCreated,
 }: {
   ownerId: string;
-  onCreated?: () => void;
+  onCreated?: (propertyId: string) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -40,8 +39,10 @@ export function AddPropertyForm({
     setError(null);
     setSubmitting(true);
     try {
-      const ref = await addDoc(propertiesCol(), {
-        id: "",
+      // Pre-generate the doc ref so we can store the real ID in the data.
+      const ref = doc(propertiesCol());
+      await setDoc(ref, {
+        id: ref.id,
         ownerId,
         name: values.name,
         addressLine1: values.addressLine1,
@@ -53,13 +54,10 @@ export function AddPropertyForm({
         unitIds: [],
         createdAt: Date.now(),
       });
-      await updateDoc(doc(db, "propertyManagers", ownerId), {
-        propertyIds: arrayUnion(ref.id),
-      }).catch(() => undefined);
       reset();
-      onCreated?.();
+      onCreated?.(ref.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add property");
+      setError(err instanceof Error ? err.message : "Failed to add property. Check that Firestore rules are deployed.");
     } finally {
       setSubmitting(false);
     }
@@ -69,11 +67,12 @@ export function AddPropertyForm({
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <Input
         label="Property name"
+        placeholder="e.g. Maple Street Apartments"
         {...register("name")}
         error={errors.name?.message}
       />
       <Input
-        label="Address"
+        label="Street address"
         {...register("addressLine1")}
         error={errors.addressLine1?.message}
       />
@@ -84,7 +83,7 @@ export function AddPropertyForm({
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={submitting}>
-        {submitting ? "Adding…" : "Add property"}
+        {submitting ? "Saving…" : "Add property"}
       </Button>
     </form>
   );

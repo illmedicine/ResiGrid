@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { propertiesCol } from "@/lib/firebase/firestore";
 import type { PropertyDoc } from "@/lib/types/models";
 
 export function useOwnerProperties(ownerId: string | undefined) {
   const [properties, setProperties] = useState<PropertyDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [queryError, setQueryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ownerId) {
@@ -15,21 +16,27 @@ export function useOwnerProperties(ownerId: string | undefined) {
       setLoading(false);
       return;
     }
-    const q = query(
-      propertiesCol(),
-      where("ownerId", "==", ownerId),
-      orderBy("createdAt", "desc"),
-    );
+    // Single-field where clause — no composite index required.
+    // Sorted client-side so this works before indexes are deployed.
+    const q = query(propertiesCol(), where("ownerId", "==", ownerId));
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setProperties(snap.docs.map((d) => d.data()));
+        const docs = snap.docs
+          .map((d) => ({ ...d.data(), id: d.id }))   // always use real doc ID
+          .sort((a, b) => b.createdAt - a.createdAt);
+        setProperties(docs);
+        setQueryError(null);
         setLoading(false);
       },
-      () => setLoading(false),
+      (err) => {
+        console.error("useOwnerProperties error:", err.message);
+        setQueryError(err.message);
+        setLoading(false);
+      },
     );
     return unsub;
   }, [ownerId]);
 
-  return { properties, loading };
+  return { properties, loading, queryError };
 }

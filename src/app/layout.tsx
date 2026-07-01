@@ -4,9 +4,9 @@ import { AuthProvider } from "@/lib/firebase/hooks";
 import { SpaRedirectHandler } from "@/components/layout/SpaRedirectHandler";
 
 export const metadata: Metadata = {
-  title: "ResiGrid — Rent Payments & Property Management",
+  title: "ResiGrid — Your Rent. Your Reputation. Zero Fees.",
   description:
-    "ResiGrid is a rent payment and property management portal connecting tenants and property managers.",
+    "ResiGrid is the world's only property management platform built on Fair Data. Transform on-time payments into a globally recognized RGE Score. Fee-free rent payments for tenants. Zero-risk leasing for landlords.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

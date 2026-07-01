@@ -11,13 +11,13 @@ const ROLE_CONFIG = {
   tenant: {
     label: "Tenant",
     icon: KeyRound,
-    description: "Pay rent, search apartments, submit maintenance requests, and build your reputation.",
+    description: "Fee-free rent payments. Every on-time transfer builds your RGE Trust Profile — a portable reputation that travels with you to your next home.",
     portal: "/tenant/dashboard",
   },
   property_manager: {
     label: "Property Manager",
     icon: ShieldCheck,
-    description: "Manage properties, tenants, leases, collect payments, and screen applicants. Start free for 3 days — no card needed.",
+    description: "Zero-risk leasing backed by the RGE Ledger. Screen applicants by verified payment history, not fragmented credit scores. Start free for 3 days — no card needed.",
     portal: "/pm/dashboard",
   },
 } as const;

@@ -9,6 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { PublicNavBar } from "@/components/layout/PublicNavBar";
+import { HeroCTAs } from "@/components/layout/HeroCTAs";
 import { Card, CardContent } from "@/components/ui/Card";
 
 const BG = {
@@ -47,20 +48,7 @@ export default function Home() {
           tenants with a portable reputation, while giving landlords mathematically
           proven reliability, all without the hidden fees of legacy software.
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-lg bg-orange-500 px-7 py-3 text-sm font-bold text-white hover:bg-orange-600"
-          >
-            Join the Grid
-          </Link>
-          <Link
-            href="/listings"
-            className="rounded-lg border border-white/40 bg-white/10 px-7 py-3 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20"
-          >
-            See How the RGE Score Works
-          </Link>
-        </div>
+        <HeroCTAs />
       </section>
 
       {/* ── Portal choice cards ───────────────────────────────────── */}

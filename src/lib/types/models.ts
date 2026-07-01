@@ -73,6 +73,8 @@ export interface ListingDoc {
   featured: boolean;
   status: ListingStatus;
   createdAt: number;
+  /** "hud_lihtc" for community housing sourced from HUD's public LIHTC database. */
+  source?: "hud_lihtc";
 }
 
 export type ApplicationStatus =

@@ -4,6 +4,7 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { termLabel } from "@/lib/lease/templates";
+import { getClauseById } from "@/lib/lease/legalClauses";
 import type { LeaseTermsDoc, UtilityResponsibility } from "@/lib/types/models";
 
 const UTIL_LABEL: Record<UtilityResponsibility, string> = {
@@ -138,16 +139,25 @@ export function LeasePreviewDoc({ lease }: LeasePreviewDocProps) {
           </DocSection>
         )}
 
-        <DocSection title="Standard Lease Provisions">
-          <p className="leading-relaxed text-neutral-600">
-            Tenant agrees to maintain the premises in good and sanitary condition. Tenant shall
-            not alter, damage, or remove any part of the property without prior written consent
-            of the Landlord. Tenant shall give immediate notice to Landlord of any needed repairs
-            or dangerous conditions. Tenant is responsible for their guests and agents.
-            This agreement is governed by the laws of the state in which the property is located.
-            Any disputes shall be resolved in the appropriate court of jurisdiction.
-          </p>
-        </DocSection>
+        {/* Selected legal clauses */}
+        {(lease.selectedClauses?.length ?? 0) > 0 && (
+          <DocSection title="Legal Terms & Conditions">
+            <div className="flex flex-col gap-6">
+              {(lease.selectedClauses ?? []).map((clauseId, idx) => {
+                const clause = getClauseById(clauseId);
+                if (!clause) return null;
+                return (
+                  <div key={clauseId}>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-navy-900">
+                      {idx + 1}. {clause.title}
+                    </p>
+                    <p className="text-xs leading-relaxed text-neutral-600">{clause.text}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </DocSection>
+        )}
 
         <div className="mt-10 grid grid-cols-2 gap-12 border-t border-neutral-200 pt-8">
           <SigBlock label="Landlord / Property Manager" />

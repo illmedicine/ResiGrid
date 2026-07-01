@@ -12,13 +12,14 @@ import {
   Car,
   CheckCircle2,
   Dog,
-  DollarSign,
   FileText,
+  Gavel,
   Save,
   Send,
   Settings,
   Zap,
 } from "lucide-react";
+import { LegalClausesSection } from "./LegalClausesSection";
 import { db } from "@/lib/firebase/config";
 import { leaseTermsCol, leaseTemplatesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
@@ -26,6 +27,7 @@ import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
 import { useUnitsForProperty } from "@/lib/hooks/useUnitsForProperty";
 import { useLeaseTemplates } from "@/lib/hooks/useLeaseTemplates";
 import { BUILTIN_TEMPLATES, computeEndDate } from "@/lib/lease/templates";
+import { LEGAL_CLAUSE_CATEGORIES } from "@/lib/lease/legalClauses";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -99,6 +101,13 @@ export function LeaseBuilderForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [selectedClauses, setSelectedClauses] = useState<Set<string>>(
+    new Set(
+      LEGAL_CLAUSE_CATEGORIES.flatMap((c) =>
+        c.clauses.filter((cl) => cl.recommended).map((cl) => cl.id),
+      ),
+    ),
+  );
   const { units } = useUnitsForProperty(selectedPropertyId || undefined);
 
   const {
@@ -209,6 +218,7 @@ export function LeaseBuilderForm() {
         quietHoursEnd: values.quietHoursEnd,
         additionalTerms: values.additionalTerms,
         status: action === "send" ? "sent" : "draft",
+        selectedClauses: Array.from(selectedClauses),
         createdAt: Date.now(),
         ...(action === "send" ? { sentAt: Date.now() } : {}),
       };
@@ -496,6 +506,19 @@ export function LeaseBuilderForm() {
               {...register("additionalTerms")}
             />
           </div>
+        </Section>
+
+        {/* ── Legal clauses ── */}
+        <Section icon={Gavel} title="Legal clauses & provisions">
+          <p className="mb-4 text-xs leading-relaxed text-neutral-600">
+            Select the legal language blocks to include in this lease agreement.
+            Recommended clauses are pre-selected based on nationwide best practices.
+            Expand any clause to read the full legal text before including it.
+          </p>
+          <LegalClausesSection
+            selected={selectedClauses}
+            onChange={setSelectedClauses}
+          />
         </Section>
 
         {/* ── Save as template ── */}

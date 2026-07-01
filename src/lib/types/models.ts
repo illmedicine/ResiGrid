@@ -291,6 +291,7 @@ export interface LeaseTermsDoc {
 
   status: LeaseStatus;
   templateId?: string;      // if created from a saved template
+  selectedClauses: string[]; // IDs of selected legal clause blocks
   createdAt: number;
   sentAt?: number;
 }

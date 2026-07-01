@@ -5,10 +5,16 @@ import { getSquareClientForAccessToken, toMoneyCents } from "../lib/square";
 import { recordCompletedPayment } from "./recordPayment";
 import type { SquareConnectionDoc, VoucherDoc } from "../types";
 
+interface ClaimResult {
+  voucherId: string;
+  /** True when this was the claiming PM's first time — redirect them to onboarding. */
+  newInvitePM: boolean;
+}
+
 /** Charges the voucher's saved card-on-file into the claiming user's
- * connected Square account. Returns the voucher ID on success. Shared by
- * the `claimVoucher` callable and the OAuth callback's auto-claim path. */
-export async function claimVoucherForUid(uid: string, claimToken: string): Promise<string> {
+ * connected Square account. Shared by the `claimVoucher` callable and the
+ * OAuth callback's auto-claim path. */
+export async function claimVoucherForUid(uid: string, claimToken: string): Promise<ClaimResult> {
   const voucherSnap = await db
     .collection("vouchers")
     .where("claimToken", "==", claimToken)
@@ -73,7 +79,27 @@ export async function claimVoucherForUid(uid: string, claimToken: string): Promi
     leaseId: voucher.leaseId,
   });
 
-  return voucherDoc.id;
+  // If this PM has no subscription doc yet, grant them free portal access
+  // as an invited landlord. This bypasses the $40 onboarding fee — the
+  // payment they just claimed IS their activation event.
+  const now = Date.now();
+  const subRef = db.collection("pmSubscriptions").doc(uid);
+  const existingSub = await subRef.get();
+  let newInvitePM = false;
+
+  if (!existingSub.exists) {
+    await subRef.set({
+      uid,
+      active: true,
+      entitlements: [],
+      totalPaid: 0,
+      invitedVia: voucherDoc.id,
+      updatedAt: now,
+    });
+    newInvitePM = true;
+  }
+
+  return { voucherId: voucherDoc.id, newInvitePM };
 }
 
 interface ClaimVoucherRequest {
@@ -82,10 +108,11 @@ interface ClaimVoucherRequest {
 
 interface ClaimVoucherResponse {
   voucherId: string;
+  newInvitePM: boolean;
 }
 
-/** Claims a voucher for a recipient who already has Square connected from
- * a previous claim — no OAuth round-trip needed this time. */
+/** Claims a voucher for a recipient who already has Square connected —
+ * no OAuth round-trip needed. */
 export const claimVoucher = onCall<ClaimVoucherRequest, Promise<ClaimVoucherResponse>>(
   { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
   async (request) => {
@@ -94,7 +121,7 @@ export const claimVoucher = onCall<ClaimVoucherRequest, Promise<ClaimVoucherResp
     if (!request.data.claimToken) {
       throw new HttpsError("invalid-argument", "Missing claim token.");
     }
-    const voucherId = await claimVoucherForUid(uid, request.data.claimToken);
-    return { voucherId };
+    const result = await claimVoucherForUid(uid, request.data.claimToken);
+    return result;
   },
 );

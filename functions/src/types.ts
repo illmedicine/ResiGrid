@@ -129,4 +129,6 @@ export interface PMSubscriptionDoc {
   entitlements: PMEntitlement[];
   totalPaid: number;
   updatedAt: number;
+  /** voucherId that activated this PM for free via the payment invite flow. */
+  invitedVia?: string;
 }

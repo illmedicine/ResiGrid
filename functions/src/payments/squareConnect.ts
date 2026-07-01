@@ -37,6 +37,7 @@ interface CompleteOAuthRequest {
 interface CompleteOAuthResponse {
   connected: boolean;
   claimedVoucherId?: string;
+  newInvitePM?: boolean;
 }
 
 export const completeSquareOAuth = onCall<CompleteOAuthRequest, Promise<CompleteOAuthResponse>>(
@@ -99,10 +100,13 @@ export const completeSquareOAuth = onCall<CompleteOAuthRequest, Promise<Complete
     await db.collection("squareConnections").doc(uid).set(connection);
 
     let claimedVoucherId: string | undefined;
+    let newInvitePM: boolean | undefined;
     if (parsedState.claimToken) {
-      claimedVoucherId = await claimVoucherForUid(uid, parsedState.claimToken);
+      const result = await claimVoucherForUid(uid, parsedState.claimToken);
+      claimedVoucherId = result.voucherId;
+      newInvitePM = result.newInvitePM || undefined;
     }
 
-    return { connected: true, claimedVoucherId };
+    return { connected: true, claimedVoucherId, newInvitePM };
   },
 );

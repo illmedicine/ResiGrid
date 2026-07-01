@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
 import {
   getSquareClient,
@@ -7,6 +8,7 @@ import {
   toMoneyCents,
 } from "../lib/square";
 import { recordCompletedPayment } from "./recordPayment";
+import { notifyVoucherRecipient } from "../lib/mailer";
 import type { UserDoc, VoucherDoc, SquareConnectionDoc } from "../types";
 
 const CLAIM_BASE_URL = process.env.CLAIM_BASE_URL ?? "https://resigrid.co/claim/";
@@ -145,10 +147,23 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
     };
     await voucherRef.set(voucher);
 
-    // leaseId is recorded on the voucher implicitly via the eventual payment
-    // doc, written only once claimVoucher() actually moves the money.
     if (leaseId) {
       await voucherRef.update({ leaseId });
+    }
+
+    // Notify the recipient — non-fatal if it fails so the payment always succeeds.
+    try {
+      const senderSnap = await db.collection("users").doc(senderId).get();
+      const senderName =
+        (senderSnap.data() as UserDoc | undefined)?.displayName ?? "Your tenant";
+      await notifyVoucherRecipient({
+        recipientContact,
+        senderName,
+        amountUsd: amount,
+        claimToken,
+      });
+    } catch (err) {
+      logger.warn("Failed to send voucher invite notification", { error: String(err) });
     }
 
     return {

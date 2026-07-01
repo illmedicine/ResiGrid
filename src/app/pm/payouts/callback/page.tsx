@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { httpsCallable } from "firebase/functions";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { functions } from "@/lib/firebase/config";
@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/Button";
 interface CompleteOAuthResponse {
   connected: boolean;
   claimedVoucherId?: string;
+  newInvitePM?: boolean;
 }
 
 function CallbackContent() {
   const params = useSearchParams();
+  const router = useRouter();
   const [state, setState] = useState<"working" | "success" | "error">("working");
   const [claimedVoucherId, setClaimedVoucherId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
@@ -37,24 +39,30 @@ function CallbackContent() {
       .then((res) => {
         setClaimedVoucherId(res.data.claimedVoucherId);
         setState("success");
+        if (res.data.newInvitePM) {
+          router.replace("/pm/onboarding?from=claim");
+        }
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to connect Square");
         setState("error");
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
   return (
     <Card className="mx-auto mt-10 max-w-md p-6">
       <CardContent className="flex flex-col items-center gap-3 p-0 text-center">
-        {state === "working" && <p className="text-sm text-neutral-600">Connecting your Square account…</p>}
+        {state === "working" && (
+          <p className="text-sm text-neutral-600">Connecting your Square account…</p>
+        )}
         {state === "success" && (
           <>
             <CheckCircle2 className="h-10 w-10 text-green-600" />
             <p className="text-sm font-medium text-navy-900">Square account connected</p>
             {claimedVoucherId && (
               <p className="text-sm text-neutral-600">
-                Your pending payment has been claimed and deposited.
+                Your payment has been claimed and deposited.
               </p>
             )}
             <Button href="/pm/dashboard" size="sm">

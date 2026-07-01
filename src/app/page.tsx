@@ -217,8 +217,14 @@ export default function Home() {
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <footer className="bg-navy-900 px-4 py-10 text-center text-sm text-white/60">
-        <p className="mb-3 font-semibold text-orange-400">
-          ResiGrid &mdash; Rent Payments &amp; Property Management
+        <p className="mb-3 text-base font-bold tracking-wide">
+          <span className="text-orange-400">ResiGrid</span>
+          <span className="text-white/50"> &mdash; </span>
+          <span className="text-white">Rent </span>
+          <span className="text-orange-400">Payments</span>
+          <span className="text-white/50"> &amp; </span>
+          <span className="text-white">Property </span>
+          <span className="text-orange-400">Management</span>
         </p>
         <p className="mb-4">
           Powered by{" "}
@@ -231,16 +237,16 @@ export default function Home() {
             Illy Robotic Instruments
           </a>
         </p>
-        <div className="flex items-center justify-center gap-4 text-xs text-white/50">
-          <Link href="/privacy" className="hover:text-orange-400">
+        <div className="flex items-center justify-center gap-4 text-xs text-white/40">
+          <Link href="/privacy" className="transition hover:text-orange-400">
             Privacy Policy
           </Link>
-          <span>·</span>
-          <Link href="/listings" className="hover:text-orange-400">
+          <span className="text-white/20">·</span>
+          <Link href="/listings" className="transition hover:text-orange-400">
             Browse Listings
           </Link>
-          <span>·</span>
-          <Link href="/login" className="hover:text-orange-400">
+          <span className="text-white/20">·</span>
+          <Link href="/login" className="transition hover:text-orange-400">
             Log in
           </Link>
         </div>

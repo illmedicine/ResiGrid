@@ -2,36 +2,31 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithRedirect,
+  signInWithPopup,
   signOut as firebaseSignOut,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "./config";
-import type { UserDoc, UserRole } from "@/lib/types/models";
+import { auth } from "./config";
+import type { UserRole } from "@/lib/types/models";
 
-// Exported so AuthProvider can call it after the redirect result resolves.
-export async function ensureUserDoc(
-  uid: string,
-  role: UserRole,
-  email: string,
-  displayName: string,
-  photoURL?: string,
-) {
-  const ref = doc(db, "users", uid);
-  const existing = await getDoc(ref);
-  if (existing.exists()) return;
-
-  const data: Partial<UserDoc> & Record<string, unknown> = {
-    uid,
-    role,
-    displayName: displayName || email,
-    email,
-    createdAt: Date.now(),
-    serverCreatedAt: serverTimestamp(),
-  };
-  if (photoURL) data.photoURL = photoURL;
-
-  await setDoc(ref, data);
+// signInWithPopup is used instead of signInWithRedirect because Chrome's
+// Bounce Tracking Mitigations (Privacy Sandbox) clear Firebase's stored auth
+// state when it detects the resigrid.co → firebaseapp.com → google.com →
+// resigrid.co redirect chain as bounce tracking — causing the page to loop
+// back to login without completing sign-in. signInWithPopup avoids any
+// page navigation; Firebase v10 falls back to BroadcastChannel when
+// COOP headers are present, so the popup works correctly on GitHub Pages.
+export async function signInWithGoogle(role: UserRole): Promise<void> {
+  sessionStorage.setItem("resigrid_pending_role", role);
+  const provider = new GoogleAuthProvider();
+  try {
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged fires on the main page → AuthProvider's onSnapshot
+    // handler creates the user doc → AuthGate's useEffect redirects to portal.
+  } catch (err) {
+    // Clear pending role so a retry doesn't use stale data.
+    sessionStorage.removeItem("resigrid_pending_role");
+    throw err;
+  }
 }
 
 export async function signUpWithEmail(
@@ -40,8 +35,9 @@ export async function signUpWithEmail(
   role: UserRole,
   displayName: string,
 ) {
+  sessionStorage.setItem("resigrid_pending_role", role);
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  await ensureUserDoc(cred.user.uid, role, email, displayName);
+  sessionStorage.setItem("resigrid_pending_role", role);
   return cred.user;
 }
 
@@ -50,16 +46,9 @@ export async function signInWithEmail(email: string, password: string) {
   return cred.user;
 }
 
-// GitHub Pages (and many static hosts) set Cross-Origin-Opener-Policy:
-// same-origin which breaks signInWithPopup's window.closed polling.
-// signInWithRedirect navigates the current tab to Google and back, avoiding
-// the COOP restriction entirely. The role is stored in sessionStorage so it
-// survives the cross-origin redirect and can be read in AuthProvider when
-// the result resolves.
-export function signInWithGoogle(role: UserRole): void {
-  sessionStorage.setItem("resigrid_pending_role", role);
-  const provider = new GoogleAuthProvider();
-  void signInWithRedirect(auth, provider);
+export async function ensureUserDoc() {
+  // User doc creation is handled entirely in AuthProvider's onSnapshot.
+  // This stub is kept for any legacy callers.
 }
 
 export async function signOut() {

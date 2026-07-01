@@ -104,9 +104,22 @@ export function AuthGate() {
     );
   }
 
-  function handleGoogleSignIn() {
+  async function handleGoogleSignIn() {
     setSigningIn(true);
-    signInWithGoogle(role); // navigates away — page never returns here
+    setError(null);
+    try {
+      await signInWithGoogle(role);
+      // Popup closed — onAuthStateChanged fires, AuthProvider's onSnapshot
+      // creates the user doc, and the useEffect above will redirect to portal.
+      // Keep signingIn=true (shows spinner) until the redirect fires.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Sign-in failed";
+      // Ignore "popup closed by user" — they just cancelled
+      if (!msg.includes("popup-closed") && !msg.includes("cancelled")) {
+        setError(msg);
+      }
+      setSigningIn(false);
+    }
   }
 
   return (

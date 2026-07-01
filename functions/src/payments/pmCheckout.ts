@@ -34,7 +34,12 @@ export const createPMSubscription = onCall<
   CreatePMSubscriptionRequest,
   Promise<CreatePMSubscriptionResponse>
 >(
-  { region: "us-central1" },
+  {
+    region: "us-central1",
+    // Allow calls from resigrid.co and local dev. Firebase callable functions
+    // need explicit CORS origins for custom (non-firebaseapp.com) domains.
+    cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"],
+  },
   async (request) => {
     const pmId = request.auth?.uid;
     if (!pmId) {

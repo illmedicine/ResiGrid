@@ -87,7 +87,7 @@ interface ClaimVoucherResponse {
 /** Claims a voucher for a recipient who already has Square connected from
  * a previous claim — no OAuth round-trip needed this time. */
 export const claimVoucher = onCall<ClaimVoucherRequest, Promise<ClaimVoucherResponse>>(
-  { region: "us-central1" },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to claim this payment.");

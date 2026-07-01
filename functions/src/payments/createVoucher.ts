@@ -26,7 +26,7 @@ interface CreateVoucherResponse {
 }
 
 export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherResponse>>(
-  { region: "us-central1" },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
   async (request) => {
     const senderId = request.auth?.uid;
     if (!senderId) {

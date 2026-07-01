@@ -10,7 +10,7 @@ interface ConnectionStatusResponse {
 /** Reports whether the signed-in user has a connected Square account,
  * without exposing the stored access/refresh tokens to the client. */
 export const getSquareConnectionStatus = onCall<unknown, Promise<ConnectionStatusResponse>>(
-  { region: "us-central1" },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");

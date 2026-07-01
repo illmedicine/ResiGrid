@@ -8,28 +8,17 @@ export function PublicNavBar() {
         {/* Spacer reserves room for the absolutely-positioned logo */}
         <div className="w-[110px] shrink-0 md:w-[260px]" />
 
-        <nav className="flex items-center gap-1.5 ml-auto">
+        <nav className="flex items-center gap-2 ml-auto">
           <Button href="/listings" variant="ghost" size="sm" className="hidden sm:inline-flex">
             Browse Listings
           </Button>
-          <Button href="/login?role=tenant" variant="outline" size="sm">
-            Tenant
-          </Button>
-          <Button href="/login?role=property_manager" variant="primary" size="sm" className="hidden xs:inline-flex">
-            Property Manager
-          </Button>
-          {/* Compact PM button only visible on very small screens */}
-          <Button href="/login?role=property_manager" variant="primary" size="sm" className="xs:hidden">
-            PM
+          <Button href="/login" variant="primary" size="sm">
+            Sign In
           </Button>
         </nav>
       </header>
 
-      <div
-        className="absolute left-2 md:left-8"
-        style={{ top: "-6px", zIndex: 50 }}
-      >
-        {/* Responsive logo — 110px mobile, 260px desktop */}
+      <div className="absolute left-2 md:left-8" style={{ top: "-6px", zIndex: 50 }}>
         <span className="md:hidden">
           <Logo size={110} href="/" />
         </span>

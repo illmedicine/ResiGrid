@@ -15,10 +15,10 @@ export function PMSubscriptionGate({ children }: { children: ReactNode }) {
   const loading = authLoading || subLoading;
   const trial = calcTrialStatus(userDoc?.createdAt);
 
-  // Access rules:
-  //  1. Paid (isActive)  → always allowed
-  //  2. In free trial    → allowed + banner shown
-  //  3. Trial expired + not paid → redirect to checkout
+  // Access matrix:
+  //  ✅ Paid (isActive)          → full access, no banner
+  //  ✅ Within free trial        → full access + countdown banner
+  //  🔒 Trial expired + unpaid  → redirect to checkout
   const hasAccess = isActive || trial.inTrial;
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function PMSubscriptionGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {/* Show trial banner only while in trial (not yet paid) */}
+      {/* Countdown banner only shows during trial (not after activation) */}
       {!isActive && trial.inTrial && <TrialBanner trial={trial} />}
       {children}
     </>

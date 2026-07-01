@@ -1,18 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/firebase/hooks";
 import { SpaRedirectHandler } from "@/components/layout/SpaRedirectHandler";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "ResiGrid — Rent Payments & Property Management",
@@ -37,9 +26,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,          // Prevents iOS auto-zoom when tapping inputs
+  maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",     // Fills iPhone notch / Dynamic Island
+  viewportFit: "cover",
   themeColor: "#0b1f3a",
 };
 
@@ -49,10 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-dvh flex flex-col bg-neutral-50">
         <AuthProvider>
           <SpaRedirectHandler />

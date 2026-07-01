@@ -16,7 +16,7 @@ interface VoucherPreviewResponse {
  * page before the recipient has signed in. Deliberately excludes anything
  * sensitive (card/customer references, sender contact info). */
 export const getVoucherPreview = onCall<VoucherPreviewRequest, Promise<VoucherPreviewResponse>>(
-  { region: "us-central1" },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
   async (request) => {
     const { claimToken } = request.data;
     if (!claimToken) {

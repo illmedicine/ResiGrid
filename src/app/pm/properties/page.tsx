@@ -1,15 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
+import { usePMSubscription, calcTrialStatus } from "@/lib/hooks/usePMSubscription";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { PropertyCard } from "@/components/pm/PropertyCard";
+import { AddPropertyForm } from "@/components/pm/AddPropertyForm";
 
 export default function PmPropertiesPage() {
-  const { user } = useAuth();
+  const { user, userDoc } = useAuth();
   const { properties, loading } = useOwnerProperties(user?.uid);
+  const { isActive } = usePMSubscription(user?.uid);
+  const trial = calcTrialStatus(userDoc?.createdAt);
+  const [showForm, setShowForm] = useState(false);
+
+  // During the free trial or after activation: add property freely (no payment gate).
+  // After trial expires: AddPropertyForm is not reachable anyway (gate redirects to checkout).
+  const canAddFree = isActive || trial.inTrial;
 
   return (
     <div className="flex flex-col gap-4">
@@ -20,12 +30,31 @@ export default function PmPropertiesPage() {
             Manage your properties and units.
           </p>
         </div>
-        {/* Adding a property goes through the paid checkout flow */}
-        <Button href="/pm/checkout?action=add" size="sm">
-          <Plus className="h-4 w-4" />
-          Add property
-        </Button>
+
+        {canAddFree ? (
+          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+            <Plus className="h-4 w-4" />
+            Add property
+          </Button>
+        ) : (
+          /* This branch is only reached if somehow the gate didn't redirect */
+          <Button href="/pm/checkout?action=add" size="sm">
+            <Plus className="h-4 w-4" />
+            Add property
+          </Button>
+        )}
       </div>
+
+      {showForm && user && canAddFree && (
+        <Card className="p-5">
+          <CardContent className="p-0">
+            <AddPropertyForm
+              ownerId={user.uid}
+              onCreated={() => setShowForm(false)}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <p className="text-sm text-neutral-600">Loading…</p>
@@ -33,8 +62,8 @@ export default function PmPropertiesPage() {
         <Card className="p-5">
           <CardContent className="p-0">
             <p className="text-sm text-neutral-600">
-              No properties yet. Click <strong>Add property</strong> to
-              activate your first listing.
+              No properties yet. Click <strong>Add property</strong> to get started —
+              it&apos;s free during your trial.
             </p>
           </CardContent>
         </Card>

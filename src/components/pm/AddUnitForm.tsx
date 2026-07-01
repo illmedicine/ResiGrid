@@ -25,7 +25,7 @@ export function AddUnitForm({
   onCreated,
 }: {
   propertyId: string;
-  onCreated?: () => void;
+  onCreated?: (unitId: string) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -54,7 +54,7 @@ export function AddUnitForm({
         unitIds: arrayUnion(ref.id),
       });
       reset();
-      onCreated?.();
+      onCreated?.(ref.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add unit");
     } finally {

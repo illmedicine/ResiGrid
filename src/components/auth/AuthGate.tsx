@@ -17,7 +17,7 @@ const ROLE_CONFIG = {
   property_manager: {
     label: "Property Manager",
     icon: ShieldCheck,
-    description: "Manage properties, tenants, leases, collect payments, and screen applicants.",
+    description: "Manage properties, tenants, leases, collect payments, and screen applicants. Start free for 3 days — no card needed.",
     portal: "/pm/dashboard",
   },
 } as const;
@@ -133,6 +133,11 @@ export function AuthGate() {
         <h1 className="text-2xl font-bold text-navy-900">
           {config.label} Portal
         </h1>
+        {role === "property_manager" && (
+          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-600">
+            🎉 3-day free trial — no card required
+          </span>
+        )}
         <p className="mt-2 max-w-xs text-sm text-neutral-600">
           {config.description}
         </p>

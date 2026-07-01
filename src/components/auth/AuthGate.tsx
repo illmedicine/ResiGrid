@@ -28,6 +28,7 @@ export function AuthGate() {
   const { user, userDoc, loading } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Safety valve: if user is authenticated but userDoc never arrives after
   // 12 s, show a retry option rather than spinning forever.
@@ -147,8 +148,10 @@ export function AuthGate() {
         ) : (
           <GoogleIcon />
         )}
-        {signingIn ? "Redirecting to Google…" : "Continue with Google"}
+        {signingIn ? "Signing in…" : "Continue with Google"}
       </button>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <p className="text-xs text-neutral-500">
         New or returning — one button does it all.

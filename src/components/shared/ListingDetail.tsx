@@ -1,30 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, doc, onSnapshot } from "firebase/firestore";
-import { Bath, BedDouble, MapPin, Star } from "lucide-react";
+import { addDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { Bath, BedDouble, CalendarCheck, Heart, MapPin, Star } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { applicationsCol } from "@/lib/firebase/firestore";
+import { applicationsCol, tenantInterestsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { DEMO_LISTINGS } from "@/lib/listings/demoListings";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import type { ListingDoc } from "@/lib/types/models";
+import { Textarea } from "@/components/ui/Textarea";
+import { Input } from "@/components/ui/Input";
+import type { ApplicationDoc, ListingDoc, TenantInterestDoc } from "@/lib/types/models";
 
 export function ListingDetail({ listingId }: { listingId: string }) {
   const { user, userDoc } = useAuth();
   const [listing, setListing] = useState<ListingDoc | null>(null);
   const [loading, setLoading] = useState(true);
-  const [applied, setApplied] = useState(false);
-  const [applying, setApplying] = useState(false);
+  const [myApplication, setMyApplication] = useState<ApplicationDoc | null>(null);
+  const [myInterest, setMyInterest] = useState<TenantInterestDoc | null>(null);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visitMode, setVisitMode] = useState(false);
+  const [interestMessage, setInterestMessage] = useState("");
+  const [visitDate, setVisitDate] = useState("");
+  const [visitNote, setVisitNote] = useState("");
+  const [activePhoto, setActivePhoto] = useState(0);
 
   const isDemo = listingId.startsWith("demo-");
+  const isTenant = userDoc?.role === "tenant";
 
   useEffect(() => {
     if (isDemo) {
-      // Demo listing — load from static data, no Firestore needed
       const found = DEMO_LISTINGS.find((l) => l.id === listingId);
       setListing(found ?? null);
       setLoading(false);
@@ -37,23 +45,102 @@ export function ListingDetail({ listingId }: { listingId: string }) {
     return unsub;
   }, [listingId, isDemo]);
 
+  // Watch tenant's own application for this listing
+  useEffect(() => {
+    if (!user || !isTenant || isDemo) return;
+    const q = query(
+      applicationsCol(),
+      where("tenantId", "==", user.uid),
+      where("listingId", "==", listingId),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const apps = snap.docs.map((d) => d.data());
+      setMyApplication(apps[0] ?? null);
+    });
+    return unsub;
+  }, [user, isTenant, listingId, isDemo]);
+
+  // Watch tenant's own interest doc for this listing
+  useEffect(() => {
+    if (!user || !isTenant || isDemo) return;
+    const q = query(
+      tenantInterestsCol(),
+      where("tenantId", "==", user.uid),
+      where("listingId", "==", listingId),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map((d) => d.data());
+      setMyInterest(docs[0] ?? null);
+    });
+    return unsub;
+  }, [user, isTenant, listingId, isDemo]);
+
+  async function handleExpressInterest() {
+    if (!user || !listing || !listing.ownerId) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await addDoc(tenantInterestsCol(), {
+        id: "",
+        tenantId: user.uid,
+        listingId: listing.id,
+        pmId: listing.ownerId,
+        type: "interest",
+        message: interestMessage.trim() || undefined,
+        createdAt: Date.now(),
+        status: "pending",
+      } as Omit<TenantInterestDoc, "id">);
+      setInterestMessage("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send interest");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleScheduleVisit() {
+    if (!user || !listing || !listing.ownerId || !visitDate) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await addDoc(tenantInterestsCol(), {
+        id: "",
+        tenantId: user.uid,
+        listingId: listing.id,
+        pmId: listing.ownerId,
+        type: "visit",
+        message: visitNote.trim() || undefined,
+        preferredDate: new Date(visitDate).getTime(),
+        createdAt: Date.now(),
+        status: "pending",
+      } as Omit<TenantInterestDoc, "id">);
+      setVisitMode(false);
+      setVisitDate("");
+      setVisitNote("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to schedule visit");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function handleApply() {
-    if (!user || !listing || isDemo) return;
-    setApplying(true);
+    if (!user || !listing) return;
+    setWorking(true);
     setError(null);
     try {
       await addDoc(applicationsCol(), {
         id: "",
         tenantId: user.uid,
         listingId: listing.id,
+        pmId: listing.ownerId,
         status: "submitted",
         submittedAt: Date.now(),
       });
-      setApplied(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply");
     } finally {
-      setApplying(false);
+      setWorking(false);
     }
   }
 
@@ -61,31 +148,41 @@ export function ListingDetail({ listingId }: { listingId: string }) {
   if (!listing) return <p className="text-sm text-neutral-600">Listing not found.</p>;
 
   const bedsLabel = listing.beds === 0 ? "Studio" : `${listing.beds} bed`;
+  const isInvited = myApplication?.status === "invited";
+  const hasSubmitted = myApplication && !["invited", "shortlisted"].includes(myApplication.status);
 
   return (
     <div className="flex flex-col gap-5">
       {/* Photo gallery */}
       {listing.photos.length > 0 && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="sm:row-span-2 overflow-hidden rounded-xl">
+        <div className="flex flex-col gap-2">
+          <div className="overflow-hidden rounded-xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={listing.photos[0]}
+              src={listing.photos[activePhoto]}
               alt={listing.title}
-              className="h-full w-full object-cover"
-              style={{ minHeight: 240 }}
+              className="h-72 w-full object-cover"
             />
           </div>
-          {listing.photos.slice(1, 3).map((p, i) => (
-            <div key={i} className="overflow-hidden rounded-xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p} alt={`${listing.title} ${i + 2}`} className="h-48 w-full object-cover" />
+          {listing.photos.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {listing.photos.map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActivePhoto(i)}
+                  className={`shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                    activePhoto === i ? "border-orange-500" : "border-transparent"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p} alt={`Photo ${i + 1}`} className="h-16 w-16 object-cover" />
+                </button>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
-
-      {/* No photo fallback */}
       {listing.photos.length === 0 && (
         <div className="flex h-48 items-center justify-center rounded-xl bg-neutral-100 text-sm text-neutral-400">
           No photos available
@@ -102,7 +199,11 @@ export function ListingDetail({ listingId }: { listingId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {listing.featured && <Badge tone="orange"><Star className="h-3 w-3 inline mr-0.5" />Featured</Badge>}
+          {listing.featured && (
+            <Badge tone="orange">
+              <Star className="h-3 w-3 inline mr-0.5" />Featured
+            </Badge>
+          )}
           {isDemo && <Badge tone="neutral">Sample listing</Badge>}
         </div>
       </div>
@@ -118,7 +219,26 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         <span className="text-xl font-bold text-navy-900">
           ${listing.rent.toLocaleString()}/mo
         </span>
+        {listing.availableFrom && (
+          <span className="text-xs text-neutral-500">
+            Available {new Date(listing.availableFrom).toLocaleDateString()}
+          </span>
+        )}
       </div>
+
+      {/* Amenities */}
+      {listing.amenities && listing.amenities.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {listing.amenities.map((a) => (
+            <span
+              key={a}
+              className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600"
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Description */}
       <Card className="p-5">
@@ -127,21 +247,20 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         </CardContent>
       </Card>
 
-      {/* CTA */}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      {/* CTAs */}
       {isDemo ? (
-        /* Demo listing — prompt sign up, explain what applying means */
         <Card className="border-orange-200 bg-orange-50 p-5">
           <CardContent className="flex flex-col gap-3 p-0">
             <p className="text-sm font-semibold text-navy-900">
-              This is a sample listing showing what ResiGrid listings look like.
+              This is a sample listing showing what ResiGrid looks like.
             </p>
             <p className="text-xs text-neutral-600">
-              Real listings from ResiGrid property managers let you apply instantly
-              with your RGE Trust Profile — no resume, no fax, no credit bureau pull.
+              Real listings let you apply with your RGE Trust Profile — no paper applications,
+              no fax, no credit bureau pull required.
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button href="/login?role=tenant" size="sm">
                 Create your RGE profile
               </Button>
@@ -152,19 +271,139 @@ export function ListingDetail({ listingId }: { listingId: string }) {
           </CardContent>
         </Card>
       ) : !user ? (
-        <Button href="/login?role=tenant">Log in to apply</Button>
+        <Card className="p-5 border-orange-100 bg-orange-50">
+          <CardContent className="flex flex-col gap-3 p-0">
+            <p className="text-sm font-semibold text-navy-900">Interested in this listing?</p>
+            <p className="text-xs text-neutral-600">
+              Sign in or create a free tenant account to express interest, schedule a viewing, or apply.
+            </p>
+            <div className="flex gap-2">
+              <Button href="/login?role=tenant" size="sm">Sign in / Sign up</Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : userDoc?.role !== "tenant" ? (
-        <p className="text-sm text-neutral-600">
-          Sign in with a tenant account to apply for this listing.
+        <p className="text-sm text-neutral-500">
+          Switch to a tenant account to interact with this listing.
         </p>
-      ) : applied ? (
-        <Badge tone="success" className="w-fit px-3 py-1.5 text-sm">
-          ✓ Application submitted — your RGE Score is now visible to the property manager.
-        </Badge>
+      ) : hasSubmitted ? (
+        /* Tenant already submitted a real application */
+        <Card className="border-green-200 bg-green-50 p-5">
+          <CardContent className="p-0 flex flex-col gap-2">
+            <p className="text-sm font-semibold text-green-800">
+              Application submitted!
+            </p>
+            <p className="text-xs text-green-700">
+              Status: <strong className="capitalize">{myApplication.status.replace(/_/g, " ")}</strong>.
+              You&apos;ll be notified of any updates in your messages and applications tab.
+            </p>
+            <Button href="/tenant/applications" size="sm" variant="outline" className="w-fit mt-1">
+              View my applications
+            </Button>
+          </CardContent>
+        </Card>
+      ) : isInvited ? (
+        /* PM has invited tenant to apply */
+        <Card className="border-orange-200 bg-orange-50 p-5">
+          <CardContent className="flex flex-col gap-3 p-0">
+            <p className="text-sm font-semibold text-navy-900">
+              🎉 You&apos;ve been invited to apply!
+            </p>
+            <p className="text-xs text-neutral-600">
+              The property manager has reviewed your interest and invited you to submit a formal
+              application. Complete your application to move forward.
+            </p>
+            <Button href="/tenant/applications" size="sm">
+              Complete my application
+            </Button>
+          </CardContent>
+        </Card>
+      ) : myInterest ? (
+        /* Tenant already expressed interest */
+        <Card className="border-neutral-200 bg-neutral-50 p-5">
+          <CardContent className="flex flex-col gap-2 p-0">
+            <p className="text-sm font-semibold text-navy-900">
+              {myInterest.type === "visit" ? "✓ Visit request sent" : "✓ Interest registered"}
+            </p>
+            <p className="text-xs text-neutral-600">
+              The property manager has been notified. If shortlisted, you&apos;ll receive an invitation
+              to apply via your messages.
+            </p>
+            <Button href="/tenant/messages" size="sm" variant="outline" className="w-fit">
+              Check messages
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <Button onClick={handleApply} disabled={applying} size="lg" className="w-full sm:w-auto">
-          {applying ? "Submitting…" : "Apply with RGE Profile"}
-        </Button>
+        /* Main tenant CTAs: express interest or schedule visit */
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-medium text-navy-900">
+            How would you like to proceed?
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {/* Express Interest */}
+            <Card className="flex-1 p-4 cursor-pointer border-neutral-200 hover:border-orange-300 transition">
+              <CardContent className="flex flex-col gap-3 p-0">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-orange-500" />
+                  <p className="text-sm font-semibold text-navy-900">Express interest</p>
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Let the property manager know you&apos;re interested. They may invite you to apply.
+                </p>
+                <Textarea
+                  placeholder="Add a message (optional)…"
+                  rows={2}
+                  value={interestMessage}
+                  onChange={(e) => setInterestMessage(e.target.value)}
+                />
+                <Button size="sm" onClick={handleExpressInterest} disabled={working}>
+                  <Heart className="h-3.5 w-3.5" />
+                  Send interest
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Schedule a Visit */}
+            <Card className="flex-1 p-4 cursor-pointer border-neutral-200 hover:border-orange-300 transition">
+              <CardContent className="flex flex-col gap-3 p-0">
+                <div className="flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-orange-500" />
+                  <p className="text-sm font-semibold text-navy-900">Schedule a visit</p>
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Request a showing. The property manager will confirm a time.
+                </p>
+                <Input
+                  type="date"
+                  label="Preferred date"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+                <Textarea
+                  placeholder="Any notes for the visit? (optional)"
+                  rows={2}
+                  value={visitNote}
+                  onChange={(e) => setVisitNote(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleScheduleVisit}
+                  disabled={working || !visitDate}
+                >
+                  <CalendarCheck className="h-3.5 w-3.5" />
+                  Request visit
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="text-xs text-center text-neutral-400">
+            Applications open after the property manager reviews your interest and sends an invitation.
+          </p>
+        </div>
       )}
     </div>
   );

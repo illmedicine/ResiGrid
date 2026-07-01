@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Home, MessageSquare, Building2, Wrench } from "lucide-react";
+import { ClipboardList, FileEdit, Home, MessageSquare, Building2, Wrench } from "lucide-react";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { PMSubscriptionGate } from "@/components/pm/PMSubscriptionGate";
 import { PortalShell, type PortalNavItem } from "@/components/layout/PortalShell";
@@ -12,6 +12,7 @@ const navItems: PortalNavItem[] = [
   { href: "/pm/dashboard", label: "Home", icon: Home },
   { href: "/pm/properties", label: "Properties", icon: Building2 },
   { href: "/pm/applications", label: "Applicants", icon: ClipboardList },
+  { href: "/pm/application-forms", label: "App Forms", icon: FileEdit },
   { href: "/pm/maintenance", label: "Maintenance", icon: Wrench },
   { href: "/pm/messages", label: "Messages", icon: MessageSquare },
 ];

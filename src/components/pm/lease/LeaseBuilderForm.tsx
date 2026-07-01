@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,16 +10,17 @@ import {
   BedDouble,
   BookTemplate,
   Car,
-  CheckCircle2,
   Dog,
   FileText,
   Gavel,
   Save,
   Send,
   Settings,
+  User,
   Zap,
 } from "lucide-react";
 import { LegalClausesSection } from "./LegalClausesSection";
+import { TenantSearchInput } from "@/components/pm/TenantSearchInput";
 import { db } from "@/lib/firebase/config";
 import { leaseTermsCol, leaseTemplatesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
@@ -38,12 +39,13 @@ import type {
   LeaseTermType,
   UtilityResponsibility,
   ParkingType,
+  UserDoc,
 } from "@/lib/types/models";
 
-// ── Schema ────────────────────────────────────────────────────────────
 const schema = z.object({
   propertyId: z.string().min(1, "Select a property"),
   unitId: z.string().min(1, "Select a unit"),
+  tenantId: z.string().optional(),
   tenantName: z.string().min(1, "Tenant name is required"),
   tenantEmail: z.string().email("Valid email required"),
   startDate: z.string().min(1, "Start date is required"),
@@ -92,7 +94,6 @@ const TERM_OPTS = [
   { value: "custom", label: "Custom" },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────
 export function LeaseBuilderForm() {
   const router = useRouter();
   const { user } = useAuth();
@@ -145,7 +146,12 @@ export function LeaseBuilderForm() {
   const parkingType = watch("parkingType");
   const saveAsTemplate = watch("saveAsTemplate");
 
-  // Apply a template to the form
+  function handleTenantSelect(tenant: UserDoc) {
+    setValue("tenantId", tenant.uid);
+    setValue("tenantName", tenant.displayName ?? "");
+    setValue("tenantEmail", tenant.email ?? "");
+  }
+
   function applyTemplate(t: Omit<LeaseTemplateDoc, "id" | "pmId" | "createdAt"> | typeof BUILTIN_TEMPLATES[string]) {
     setValue("termType", t.termType as FormInput["termType"]);
     if (t.customMonths) setValue("customMonths", String(t.customMonths) as unknown as number);
@@ -183,6 +189,7 @@ export function LeaseBuilderForm() {
         pmId: user.uid,
         unitId: values.unitId,
         propertyId: values.propertyId,
+        tenantId: values.tenantId,
         tenantName: values.tenantName,
         tenantEmail: values.tenantEmail,
         termType: values.termType,
@@ -225,11 +232,7 @@ export function LeaseBuilderForm() {
 
       const ref = await addDoc(leaseTermsCol(), leaseData);
 
-      // Optionally save as a reusable template
       if (values.saveAsTemplate && values.templateName) {
-        const { startDate: _s, endDate: _e, tenantName: _tn, tenantEmail: _te,
-          unitId: _u, propertyId: _p, pmId: _pm, status: _st, createdAt: _ca,
-          sentAt: _sa, tenantId: _tid, ...templateFields } = leaseData as LeaseTermsDoc & Record<string, unknown>;
         const tmplRef = doc(leaseTemplatesCol());
         const template: LeaseTemplateDoc = {
           id: tmplRef.id,
@@ -255,7 +258,7 @@ export function LeaseBuilderForm() {
 
       router.push(`/pm/leases/view/?id=${ref.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create lease");
+      setError(err instanceof Error ? err.message : "Failed to save lease");
     } finally {
       setSubmitting(false);
     }
@@ -263,7 +266,7 @@ export function LeaseBuilderForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Template selector ── */}
+      {/* Template selector */}
       <Section icon={BookTemplate} title="Start from a template">
         <div className="flex flex-wrap gap-2">
           {Object.entries(BUILTIN_TEMPLATES).map(([key, tmpl]) => (
@@ -290,7 +293,7 @@ export function LeaseBuilderForm() {
       </Section>
 
       <form className="flex flex-col gap-6">
-        {/* ── Property & Unit ── */}
+        {/* Property & Unit */}
         <Section icon={BedDouble} title="Property & Unit">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Select
@@ -322,15 +325,39 @@ export function LeaseBuilderForm() {
           </div>
         </Section>
 
-        {/* ── Tenant Info ── */}
-        <Section icon={FileText} title="Tenant information">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Tenant full name" {...register("tenantName")} error={errors.tenantName?.message} />
-            <Input label="Tenant email" type="email" {...register("tenantEmail")} error={errors.tenantEmail?.message} />
+        {/* Tenant Info — with UID search */}
+        <Section icon={User} title="Tenant information">
+          <div className="flex flex-col gap-4">
+            <TenantSearchInput
+              label="Search for a registered tenant (auto-fills name, email & UID)"
+              onSelect={handleTenantSelect}
+            />
+            <p className="text-xs text-neutral-500">
+              Or enter manually if the tenant has not yet registered:
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="Tenant full name"
+                {...register("tenantName")}
+                error={errors.tenantName?.message}
+              />
+              <Input
+                label="Tenant email"
+                type="email"
+                {...register("tenantEmail")}
+                error={errors.tenantEmail?.message}
+              />
+            </div>
+            <Input
+              label="Tenant UID (auto-filled on search)"
+              {...register("tenantId")}
+              placeholder="e.g. abc123xyz"
+              className="font-mono text-xs"
+            />
           </div>
         </Section>
 
-        {/* ── Lease Term ── */}
+        {/* Lease Term */}
         <Section icon={FileText} title="Lease term & financials">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="col-span-2 sm:col-span-1">
@@ -353,7 +380,7 @@ export function LeaseBuilderForm() {
           </div>
         </Section>
 
-        {/* ── Utilities ── */}
+        {/* Utilities */}
         <Section icon={Zap} title="Utilities — who pays?">
           <div className="flex flex-col gap-3">
             {(["gas", "electric", "water", "trash", "internet"] as const).map((util) => {
@@ -389,7 +416,7 @@ export function LeaseBuilderForm() {
           </div>
         </Section>
 
-        {/* ── Pets ── */}
+        {/* Pets */}
         <Section icon={Dog} title="Pet policy">
           <Controller
             name="petsAllowed"
@@ -425,7 +452,7 @@ export function LeaseBuilderForm() {
           )}
         </Section>
 
-        {/* ── Parking ── */}
+        {/* Parking */}
         <Section icon={Car} title="Parking">
           <Controller
             name="parkingType"
@@ -463,7 +490,7 @@ export function LeaseBuilderForm() {
           )}
         </Section>
 
-        {/* ── Rules ── */}
+        {/* Rules */}
         <Section icon={Settings} title="Rules & additional terms">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
@@ -508,20 +535,16 @@ export function LeaseBuilderForm() {
           </div>
         </Section>
 
-        {/* ── Legal clauses ── */}
+        {/* Legal clauses */}
         <Section icon={Gavel} title="Legal clauses & provisions">
           <p className="mb-4 text-xs leading-relaxed text-neutral-600">
             Select the legal language blocks to include in this lease agreement.
             Recommended clauses are pre-selected based on nationwide best practices.
-            Expand any clause to read the full legal text before including it.
           </p>
-          <LegalClausesSection
-            selected={selectedClauses}
-            onChange={setSelectedClauses}
-          />
+          <LegalClausesSection selected={selectedClauses} onChange={setSelectedClauses} />
         </Section>
 
-        {/* ── Save as template ── */}
+        {/* Save as template */}
         <Section icon={Save} title="Save as template">
           <Controller
             name="saveAsTemplate"
@@ -551,9 +574,13 @@ export function LeaseBuilderForm() {
           )}
         </Section>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
-        {/* ── Actions ── */}
+        {/* Actions */}
         <div className="flex flex-wrap gap-3 border-t border-neutral-200 pt-5">
           <Button
             type="button"
@@ -570,7 +597,7 @@ export function LeaseBuilderForm() {
             onClick={handleSubmit((v) => onSubmit(v, "send"))}
           >
             <Send className="h-4 w-4" />
-            {submitting ? "Sending…" : "Send to tenant"}
+            {submitting ? "Saving…" : "Send to tenant"}
           </Button>
         </div>
       </form>

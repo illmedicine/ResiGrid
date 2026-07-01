@@ -8,6 +8,7 @@ import {
 import { db } from "./config";
 import type {
   ApplicationDoc,
+  ApplicationFormDoc,
   LeaseDoc,
   LeaseTemplateDoc,
   LeaseTermsDoc,
@@ -20,6 +21,7 @@ import type {
   PropertyDoc,
   PropertyManagerDoc,
   ReputationScoreDoc,
+  TenantInterestDoc,
   UnitDoc,
   UserDoc,
   VoucherDoc,
@@ -61,3 +63,7 @@ export const noticesCol = () => typedCollection<NoticeDoc>("notices");
 export const leaseTermsCol = () => typedCollection<LeaseTermsDoc>("leaseTerms");
 export const leaseTemplatesCol = () =>
   typedCollection<LeaseTemplateDoc>("leaseTemplates");
+export const tenantInterestsCol = () =>
+  typedCollection<TenantInterestDoc>("tenantInterests");
+export const applicationFormsCol = () =>
+  typedCollection<ApplicationFormDoc>("applicationForms");

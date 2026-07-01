@@ -26,7 +26,6 @@ service cloud.firestore {
     }
 
     // --- Properties ---
-    // Use resource.data.ownerId directly — avoids cross-doc get() in rules.
     match /properties/{propertyId} {
       allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
@@ -35,10 +34,8 @@ service cloud.firestore {
     }
 
     // --- Units ---
-    // Use request.resource.data.propertyId for create, resource.data for read/update.
-    // Allow tenant read when they are the currentTenantId.
     match /units/{unitId} {
-      allow read: if isSignedIn();  // PM + tenant both need to read units
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.propertyId != null;
       allow update: if isSignedIn();
       allow delete: if isSignedIn();
@@ -53,14 +50,41 @@ service cloud.firestore {
     }
 
     // --- Applications ---
+    // Tenant reads own; PM reads/updates via pmId or listing ownership.
+    // PM can create (shortlist/invite); tenant updates with docs/answers.
     match /applications/{applicationId} {
       allow read: if isSignedIn() &&
         (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid ||
          get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid);
+      allow create: if isSignedIn() && (
+        request.resource.data.tenantId == request.auth.uid ||
+        request.resource.data.pmId == request.auth.uid
+      );
+      allow update: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid ||
+         get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // --- Tenant interests (express interest / schedule visit) ---
+    match /tenantInterests/{interestId} {
+      allow read: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
       allow update: if isSignedIn() &&
-        get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid;
+        (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid);
       allow delete: if false;
+    }
+
+    // --- Application forms (PM-created custom forms) ---
+    match /applicationForms/{formId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
     }
 
     // --- Leases ---
@@ -93,10 +117,15 @@ service cloud.firestore {
     }
 
     // --- Maintenance requests ---
+    // Tenant reads/creates own; PM reads/updates for their properties
     match /maintenanceRequests/{requestId} {
-      allow read: if isSignedIn() && resource.data.tenantId == request.auth.uid;
+      allow read: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
       allow delete: if false;
     }
 
@@ -133,7 +162,8 @@ service cloud.firestore {
 
     // --- Lease terms (full detailed lease documents) ---
     match /leaseTerms/{leaseId} {
-      allow read: if isSignedIn() && resource.data.pmId == request.auth.uid;
+      allow read: if isSignedIn() &&
+        (resource.data.pmId == request.auth.uid || resource.data.tenantId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
       allow update: if isSignedIn() &&
         (resource.data.pmId == request.auth.uid || resource.data.tenantId == request.auth.uid);

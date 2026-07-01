@@ -81,8 +81,11 @@ export interface ListingDoc {
 }
 
 export type ApplicationStatus =
+  | "shortlisted"
+  | "invited"
   | "submitted"
   | "under_review"
+  | "more_info_needed"
   | "approved"
   | "denied"
   | "withdrawn";
@@ -91,10 +94,56 @@ export interface ApplicationDoc {
   id: string;
   tenantId: string;
   listingId: string;
+  pmId?: string;
   status: ApplicationStatus;
   reputationSnapshot?: ReputationScoreDoc;
   message?: string;
   submittedAt: number;
+  invitedAt?: number;
+  decidedAt?: number;
+  decisionNote?: string;
+  documentUrls?: string[];
+  depositPaidAt?: number;
+  leaseSignDeadline?: number;
+  applicationFormId?: string;
+  // Applicant-provided answers
+  monthlyIncome?: number;
+  employer?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  moveInDate?: number;
+}
+
+/** Tenant expresses interest in a listing or requests a visit */
+export interface TenantInterestDoc {
+  id: string;
+  tenantId: string;
+  listingId: string;
+  pmId: string;
+  type: "visit" | "interest";
+  message?: string;
+  preferredDate?: number;
+  createdAt: number;
+  status: "pending" | "acknowledged" | "scheduled" | "completed";
+}
+
+/** PM-created custom application form for a listing or property */
+export interface ApplicationFormDoc {
+  id: string;
+  pmId: string;
+  name: string;
+  listingId?: string;
+  requireIncomeVerification: boolean;
+  requireBackgroundCheck: boolean;
+  requireCreditCheck: boolean;
+  requirePaystubs: boolean;
+  requireBankStatements: boolean;
+  requirePhotoID: boolean;
+  requireUtilityStatement: boolean;
+  allowInstantApply: boolean;
+  applicationFee?: number;
+  customQuestions: string[];
+  createdAt: number;
 }
 
 export type LeaseSignStatus = "unsigned" | "tenant_signed" | "fully_signed";

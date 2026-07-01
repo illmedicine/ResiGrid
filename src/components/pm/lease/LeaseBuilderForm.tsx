@@ -47,7 +47,7 @@ const schema = z.object({
   unitId: z.string().min(1, "Select a unit"),
   tenantId: z.string().optional(),
   tenantName: z.string().min(1, "Tenant name is required"),
-  tenantEmail: z.string().email("Valid email required"),
+  tenantEmail: z.union([z.string().email("Valid email required"), z.literal("")]),
   startDate: z.string().min(1, "Start date is required"),
   termType: z.enum(["month-to-month", "12-month", "24-month", "custom"]),
   customMonths: z.coerce.number().min(1).optional(),
@@ -101,6 +101,7 @@ export function LeaseBuilderForm() {
   const { templates: savedTemplates } = useLeaseTemplates(user?.uid);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedClauses, setSelectedClauses] = useState<Set<string>>(
     new Set(
@@ -120,6 +121,7 @@ export function LeaseBuilderForm() {
     formState: { errors },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
+    mode: "onBlur",
     defaultValues: {
       termType: "12-month",
       gasResponsibility: "tenant",
@@ -127,17 +129,17 @@ export function LeaseBuilderForm() {
       waterResponsibility: "landlord",
       trashResponsibility: "landlord",
       internetResponsibility: "na",
-      petsAllowed: "false" as unknown as boolean,
+      petsAllowed: false,
       parkingType: "none",
-      smokingAllowed: "false" as unknown as boolean,
+      smokingAllowed: false,
       quietHoursStart: "22:00",
       quietHoursEnd: "08:00",
-      lateFeeDays: "5" as unknown as number,
-      lateFeeAmount: "50" as unknown as number,
-      securityDeposit: "0" as unknown as number,
-      moveInFee: "0" as unknown as number,
+      lateFeeDays: 5,
+      lateFeeAmount: 50,
+      securityDeposit: 0,
+      moveInFee: 0,
       additionalTerms: "",
-      saveAsTemplate: "false" as unknown as boolean,
+      saveAsTemplate: false,
     },
   });
 
@@ -154,27 +156,48 @@ export function LeaseBuilderForm() {
 
   function applyTemplate(t: Omit<LeaseTemplateDoc, "id" | "pmId" | "createdAt"> | typeof BUILTIN_TEMPLATES[string]) {
     setValue("termType", t.termType as FormInput["termType"]);
-    if (t.customMonths) setValue("customMonths", String(t.customMonths) as unknown as number);
-    setValue("lateFeeDays", String(t.lateFeeDays) as unknown as number);
-    setValue("lateFeeAmount", String(t.lateFeeAmount) as unknown as number);
-    setValue("moveInFee", String(t.moveInFee) as unknown as number);
+    if (t.customMonths) setValue("customMonths", t.customMonths);
+    setValue("lateFeeDays", t.lateFeeDays);
+    setValue("lateFeeAmount", t.lateFeeAmount);
+    setValue("moveInFee", t.moveInFee);
     setValue("gasResponsibility", t.utilities.gas);
     setValue("electricResponsibility", t.utilities.electric);
     setValue("waterResponsibility", t.utilities.water);
     setValue("trashResponsibility", t.utilities.trash);
     setValue("internetResponsibility", t.utilities.internet);
-    setValue("petsAllowed", String(t.pets.allowed) as unknown as boolean);
-    setValue("petsMaxCount", String(t.pets.maxCount) as unknown as number);
+    setValue("petsAllowed", t.pets.allowed);
+    setValue("petsMaxCount", t.pets.maxCount);
     setValue("petsTypesAllowed", t.pets.typesAllowed);
-    setValue("petsDeposit", String(t.pets.deposit) as unknown as number);
-    setValue("petsMonthlyRent", String(t.pets.monthlyRent) as unknown as number);
+    setValue("petsDeposit", t.pets.deposit);
+    setValue("petsMonthlyRent", t.pets.monthlyRent);
     setValue("parkingType", t.parking.type as FormInput["parkingType"]);
-    setValue("parkingSpaces", String(t.parking.spaces) as unknown as number);
-    setValue("parkingMonthlyFee", String(t.parking.monthlyFee) as unknown as number);
-    setValue("smokingAllowed", String(t.smokingAllowed) as unknown as boolean);
+    setValue("parkingSpaces", t.parking.spaces);
+    setValue("parkingMonthlyFee", t.parking.monthlyFee);
+    setValue("smokingAllowed", t.smokingAllowed);
     setValue("quietHoursStart", t.quietHoursStart);
     setValue("quietHoursEnd", t.quietHoursEnd);
     setValue("additionalTerms", t.additionalTerms);
+  }
+
+  const FIELD_LABELS: Partial<Record<keyof FormInput, string>> = {
+    propertyId: "Property",
+    unitId: "Unit",
+    tenantName: "Tenant name",
+    tenantEmail: "Tenant email",
+    startDate: "Start date",
+    rent: "Monthly rent",
+  };
+
+  function onInvalid(errs: Record<string, unknown>) {
+    const messages = Object.entries(errs)
+      .map(([field, err]) => {
+        const label = FIELD_LABELS[field as keyof FormInput] ?? field;
+        const msg = (err as { message?: string })?.message;
+        return msg ? `${label}: ${msg}` : label;
+      });
+    setValidationErrors(messages);
+    // Scroll to top of form so user sees the errors
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function onSubmit(values: FormValues, action: "draft" | "send") {
@@ -440,7 +463,7 @@ export function LeaseBuilderForm() {
               </div>
             )}
           />
-          {String(petsAllowed) === "true" && (
+          {petsAllowed === true && (
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <Input label="Max pets" type="number" min="1" {...register("petsMaxCount")} />
               <Input label="Pet deposit ($)" type="number" {...register("petsDeposit")} />
@@ -574,6 +597,18 @@ export function LeaseBuilderForm() {
           )}
         </Section>
 
+        {/* Validation error summary */}
+        {validationErrors.length > 0 && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p className="font-semibold mb-1">Please fix the following before saving:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {validationErrors.map((msg) => (
+                <li key={msg}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -586,7 +621,10 @@ export function LeaseBuilderForm() {
             type="button"
             variant="outline"
             disabled={submitting}
-            onClick={handleSubmit((v) => onSubmit(v, "draft"))}
+            onClick={() => {
+              setValidationErrors([]);
+              handleSubmit((v) => onSubmit(v, "draft"), onInvalid)();
+            }}
           >
             <Save className="h-4 w-4" />
             Save draft
@@ -594,7 +632,10 @@ export function LeaseBuilderForm() {
           <Button
             type="button"
             disabled={submitting}
-            onClick={handleSubmit((v) => onSubmit(v, "send"))}
+            onClick={() => {
+              setValidationErrors([]);
+              handleSubmit((v) => onSubmit(v, "send"), onInvalid)();
+            }}
           >
             <Send className="h-4 w-4" />
             {submitting ? "Saving…" : "Send to tenant"}

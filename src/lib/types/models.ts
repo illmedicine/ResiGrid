@@ -230,3 +230,88 @@ export interface PMSubscriptionDoc {
   totalPaid: number;
   updatedAt: number;
 }
+
+export type UtilityResponsibility = "tenant" | "landlord" | "split" | "na";
+export type LeaseTermType = "month-to-month" | "12-month" | "24-month" | "custom";
+export type ParkingType = "none" | "included" | "paid";
+export type LeaseStatus = "draft" | "sent" | "tenant_signed" | "fully_signed" | "expired";
+
+export interface LeaseUtilities {
+  gas: UtilityResponsibility;
+  electric: UtilityResponsibility;
+  water: UtilityResponsibility;
+  trash: UtilityResponsibility;
+  internet: UtilityResponsibility;
+}
+
+export interface LeasePets {
+  allowed: boolean;
+  maxCount: number;
+  typesAllowed: string;
+  deposit: number;
+  monthlyRent: number;
+}
+
+export interface LeaseParking {
+  type: ParkingType;
+  spaces: number;
+  monthlyFee: number;
+}
+
+export interface LeaseTermsDoc {
+  id: string;
+  pmId: string;
+  unitId: string;
+  propertyId: string;
+  tenantId?: string;        // set when PM assigns to a specific applicant
+  tenantName: string;
+  tenantEmail: string;
+
+  // Term
+  termType: LeaseTermType;
+  customMonths?: number;
+  startDate: number;        // timestamp
+  endDate?: number;         // computed; null for month-to-month
+
+  // Financials
+  rent: number;
+  securityDeposit: number;
+  moveInFee: number;
+  lateFeeDays: number;      // grace period in days
+  lateFeeAmount: number;
+
+  // Details
+  utilities: LeaseUtilities;
+  pets: LeasePets;
+  parking: LeaseParking;
+  smokingAllowed: boolean;
+  quietHoursStart: string;  // e.g. "22:00"
+  quietHoursEnd: string;    // e.g. "08:00"
+  additionalTerms: string;
+
+  status: LeaseStatus;
+  templateId?: string;      // if created from a saved template
+  createdAt: number;
+  sentAt?: number;
+}
+
+/** Savable template — PM can reuse for future leases */
+export interface LeaseTemplateDoc {
+  id: string;
+  pmId: string;
+  name: string;             // "12-Month Standard", "Pet-Friendly M2M", etc.
+  termType: LeaseTermType;
+  customMonths?: number;
+  securityDepositMultiplier: number; // multiplier of rent (e.g. 1.5 = 1.5× rent)
+  moveInFee: number;
+  lateFeeDays: number;
+  lateFeeAmount: number;
+  utilities: LeaseUtilities;
+  pets: LeasePets;
+  parking: LeaseParking;
+  smokingAllowed: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  additionalTerms: string;
+  createdAt: number;
+}

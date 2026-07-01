@@ -9,6 +9,8 @@ import { db } from "./config";
 import type {
   ApplicationDoc,
   LeaseDoc,
+  LeaseTemplateDoc,
+  LeaseTermsDoc,
   ListingDoc,
   MaintenanceRequestDoc,
   MessageDoc,
@@ -56,3 +58,6 @@ export const messageThreadsCol = () =>
 export const threadMessagesCol = (threadId: string) =>
   typedCollection<MessageDoc>(`messageThreads/${threadId}/messages`);
 export const noticesCol = () => typedCollection<NoticeDoc>("notices");
+export const leaseTermsCol = () => typedCollection<LeaseTermsDoc>("leaseTerms");
+export const leaseTemplatesCol = () =>
+  typedCollection<LeaseTemplateDoc>("leaseTemplates");

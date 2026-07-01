@@ -73,8 +73,8 @@ export interface ListingDoc {
   featured: boolean;
   status: ListingStatus;
   createdAt: number;
-  /** "hud_lihtc" for community housing sourced from HUD's public LIHTC database. */
-  source?: "hud_lihtc";
+  /** Source tag for non-ResiGrid listings ("hud_lihtc" or "demo"). */
+  source?: "hud_lihtc" | "demo";
 }
 
 export type ApplicationStatus =

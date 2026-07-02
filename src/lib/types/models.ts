@@ -48,6 +48,7 @@ export interface UnitDoc {
   baths: number;
   rent: number;
   sqft?: number;
+  photos?: string[];
   status: UnitStatus;
   currentTenantId?: string;
   currentLeaseId?: string;

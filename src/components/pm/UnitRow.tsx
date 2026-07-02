@@ -5,13 +5,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addDoc, arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { Edit2, Trash2, UserMinus } from "lucide-react";
+import { Camera, Edit2, Trash2, UserMinus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { leasesCol, listingsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhotoUpload } from "@/components/pm/PhotoUpload";
 import type { PropertyDoc, UnitDoc } from "@/lib/types/models";
 
 const leaseSchema = z.object({
@@ -40,6 +41,8 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
   const [removingTenant, setRemovingTenant] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unitPhotos, setUnitPhotos] = useState<string[]>(unit.photos ?? []);
+  const [savingPhotos, setSavingPhotos] = useState(false);
 
   const leaseForm = useForm<LeaseFormInput, unknown, LeaseFormValues>({ resolver: zodResolver(leaseSchema) });
   const editForm = useForm<EditInput, unknown, EditValues>({
@@ -61,7 +64,7 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
         rent: unit.rent,
         beds: unit.beds,
         baths: unit.baths,
-        photos: property.photos,
+        photos: unit.photos?.length ? unit.photos : property.photos,
         city: property.city,
         state: property.state,
         zip: property.zip,
@@ -131,6 +134,16 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
       setError(err instanceof Error ? err.message : "Failed to remove tenant");
     } finally {
       setRemovingTenant(false);
+    }
+  }
+
+  async function handleSavePhotos(urls: string[]) {
+    setUnitPhotos(urls);
+    setSavingPhotos(true);
+    try {
+      await updateDoc(doc(db, "units", unit.id), { photos: urls });
+    } finally {
+      setSavingPhotos(false);
     }
   }
 
@@ -210,8 +223,25 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
               <Input label="Baths" type="number" step="0.5" {...editForm.register("baths")} />
               <Input label="Rent ($)" type="number" {...editForm.register("rent")} />
             </div>
+            {/* Unit photos */}
+            <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-navy-900">
+                <Camera className="h-3.5 w-3.5 text-orange-500" />
+                Unit photos
+                {savingPhotos && <span className="font-normal text-neutral-400">Saving…</span>}
+              </p>
+              <p className="text-[11px] text-neutral-500">
+                These photos appear on the listing and on the tenant&apos;s My Home dashboard. Unit photos override property photos.
+              </p>
+              <PhotoUpload
+                storagePath={`resigrid/units/${unit.id}`}
+                uploadedUrls={unitPhotos}
+                onChange={handleSavePhotos}
+                maxPhotos={10}
+              />
+            </div>
             <div className="flex gap-2">
-              <Button type="submit" size="sm">Save</Button>
+              <Button type="submit" size="sm">Save details</Button>
               <Button type="button" size="sm" variant="outline" onClick={() => setMode("none")}>Cancel</Button>
             </div>
           </form>

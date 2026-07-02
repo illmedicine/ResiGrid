@@ -15,9 +15,16 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import type { MaintenancePriority } from "@/lib/types/models";
 
+const ROOMS = [
+  "Kitchen", "Living Room", "Primary Bedroom", "Bedroom 2", "Bedroom 3",
+  "Bathroom", "Bathroom 2", "Hallway", "Laundry Room", "Garage",
+  "Patio / Balcony", "Basement", "Entire Unit", "Building Common Area", "Other",
+];
+
 const schema = z.object({
   categoryId: z.string().min(1),
   item: z.string().min(1),
+  affectedRoom: z.string().min(1, "Select the affected room"),
   priority: z.enum(["low", "medium", "high", "urgent"]),
   description: z.string().min(1, "Describe the issue"),
 });
@@ -125,6 +132,7 @@ export function MaintenanceRequestForm({
         tenantId,
         category,
         item: values.item,
+        affectedRoom: values.affectedRoom,
         description: values.description,
         photoUrls,
         status: "submitted",
@@ -159,9 +167,14 @@ export function MaintenanceRequestForm({
       <Select label="Item" disabled={!categoryId} {...register("item")}>
         <option value="">Select an item…</option>
         {items.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
+          <option key={item} value={item}>{item}</option>
+        ))}
+      </Select>
+
+      <Select label="Affected room" {...register("affectedRoom")} error={errors.affectedRoom?.message}>
+        <option value="">Select the room…</option>
+        {ROOMS.map((room) => (
+          <option key={room} value={room}>{room}</option>
         ))}
       </Select>
 

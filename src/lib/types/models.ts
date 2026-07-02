@@ -229,10 +229,13 @@ export interface MaintenanceRequestDoc {
   tenantId: string;
   category: string;
   item: string;
+  affectedRoom?: string;
   description: string;
   photoUrls: string[];
   status: MaintenanceStatus;
   priority: MaintenancePriority;
+  tenantNotes?: string;
+  pmNotes?: string;
   createdAt: number;
 }
 
@@ -317,37 +320,53 @@ export interface LeaseTermsDoc {
   pmId: string;
   unitId: string;
   propertyId: string;
-  tenantId?: string;        // set when PM assigns to a specific applicant
+  tenantId?: string;
   tenantName: string;
   tenantEmail: string;
 
-  // Term
   termType: LeaseTermType;
   customMonths?: number;
-  startDate: number;        // timestamp
-  endDate?: number;         // computed; null for month-to-month
+  startDate: number;
+  endDate?: number;
 
-  // Financials
   rent: number;
   securityDeposit: number;
   moveInFee: number;
-  lateFeeDays: number;      // grace period in days
+  lateFeeDays: number;
   lateFeeAmount: number;
 
-  // Details
   utilities: LeaseUtilities;
   pets: LeasePets;
   parking: LeaseParking;
   smokingAllowed: boolean;
-  quietHoursStart: string;  // e.g. "22:00"
-  quietHoursEnd: string;    // e.g. "08:00"
+  quietHoursStart: string;
+  quietHoursEnd: string;
   additionalTerms: string;
 
   status: LeaseStatus;
-  templateId?: string;      // if created from a saved template
-  selectedClauses: string[]; // IDs of selected legal clause blocks
+  templateId?: string;
+  selectedClauses: string[];
   createdAt: number;
   sentAt?: number;
+  viewedAt?: number;
+  tenantSignedAt?: number;
+  signDeadline?: number;    // sentAt + 48 h
+}
+
+export interface SharedDocumentDoc {
+  id: string;
+  uploaderId: string;
+  uploaderRole: "tenant" | "property_manager";
+  tenantId: string;
+  pmId: string;
+  unitId?: string;
+  propertyId?: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: "lease" | "application" | "maintenance" | "other";
+  createdAt: number;
 }
 
 /** Savable template — PM can reuse for future leases */

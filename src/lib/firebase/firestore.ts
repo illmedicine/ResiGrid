@@ -21,6 +21,7 @@ import type {
   PropertyDoc,
   PropertyManagerDoc,
   ReputationScoreDoc,
+  SharedDocumentDoc,
   TenantInterestDoc,
   UnitDoc,
   UserDoc,
@@ -67,3 +68,5 @@ export const tenantInterestsCol = () =>
   typedCollection<TenantInterestDoc>("tenantInterests");
 export const applicationFormsCol = () =>
   typedCollection<ApplicationFormDoc>("applicationForms");
+export const sharedDocumentsCol = () =>
+  typedCollection<SharedDocumentDoc>("sharedDocuments");

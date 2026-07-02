@@ -176,5 +176,15 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
     }
+
+    // --- Shared documents (PM + tenant can upload/read) ---
+    match /sharedDocuments/{docId} {
+      allow read: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.uploaderId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
+      allow update: if false;
+    }
   }
 }

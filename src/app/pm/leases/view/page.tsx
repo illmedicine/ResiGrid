@@ -53,8 +53,24 @@ function LeaseViewContent() {
   useEffect(() => {
     if (!id) { setLoading(false); return; }
     return onSnapshot(doc(db, "leaseTerms", id), (snap) => {
-      setLease(snap.exists() ? ({ ...snap.data(), id: snap.id } as LeaseTermsDoc) : null);
+      if (!snap.exists()) { setLease(null); setLoading(false); return; }
+      const data = { ...snap.data(), id: snap.id } as LeaseTermsDoc;
+      setLease(data);
       setLoading(false);
+      // Auto-repair: if fully_signed but pmSignedAt was never written, backfill it now.
+      if (data.status === "fully_signed" && !data.pmSignedAt) {
+        updateDoc(doc(db, "leaseTerms", id), {
+          pmSignedAt: data.tenantSignedAt ?? Date.now(),
+          pmDisplayName: data.pmDisplayName ?? "Property Manager",
+        });
+      }
+      // Auto-repair: ensure unit has currentTenantId set.
+      if (data.status === "fully_signed" && data.unitId && data.tenantId) {
+        updateDoc(doc(db, "units", data.unitId), {
+          status: "occupied",
+          currentTenantId: data.tenantId,
+        });
+      }
     });
   }, [id]);
 

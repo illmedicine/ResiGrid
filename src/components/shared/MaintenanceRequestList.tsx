@@ -30,13 +30,26 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
   const [tenantNotes, setTenantNotes] = useState(req.tenantNotes ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Keep local state in sync when Firestore pushes an update to this request.
+  useEffect(() => {
+    if (!saving) setTenantNotes(req.tenantNotes ?? "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [req.tenantNotes]);
 
   async function handleSaveNotes() {
     setSaving(true);
-    await updateDoc(doc(db, "maintenanceRequests", req.id), { tenantNotes });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError(null);
+    try {
+      await updateDoc(doc(db, "maintenanceRequests", req.id), { tenantNotes });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save note");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -93,6 +106,7 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
                 <Button size="sm" variant="outline" className="mt-1.5" onClick={handleSaveNotes} disabled={saving}>
                   {saved ? "Saved!" : saving ? "Saving…" : "Save note"}
                 </Button>
+                {saveError && <p className="mt-1 text-xs text-red-600">{saveError}</p>}
               </div>
             )}
           </div>

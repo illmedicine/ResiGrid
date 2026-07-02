@@ -58,6 +58,11 @@ function LeaseViewContent() {
     });
   }, [id]);
 
+  // Must be before any early returns to satisfy Rules of Hooks
+  const deadline = lease?.sentAt ? lease.sentAt + SIGN_WINDOW_MS : undefined;
+  const remaining = useCountdown(deadline);
+  const isExpired = lease?.status === "sent" && remaining !== null && remaining === 0;
+
   async function handleSend() {
     if (!id || !lease || !user) return;
     const now = Date.now();
@@ -94,11 +99,6 @@ function LeaseViewContent() {
   if (!id) return <p className="text-sm text-neutral-600">No lease specified.</p>;
   if (loading) return <p className="text-sm text-neutral-600">Loading…</p>;
   if (!lease) return <p className="text-sm text-neutral-600">Lease not found.</p>;
-
-  const deadline = lease.sentAt ? lease.sentAt + SIGN_WINDOW_MS : undefined;
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const remaining = useCountdown(deadline);
-  const isExpired = lease.status === "sent" && remaining !== null && remaining === 0;
 
   return (
     <div className="flex flex-col gap-4">

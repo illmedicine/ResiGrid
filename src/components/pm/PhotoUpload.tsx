@@ -7,7 +7,10 @@ import { storage } from "@/lib/firebase/config";
 import { cn } from "@/lib/utils/cn";
 
 interface PhotoUploadProps {
-  listingId: string;
+  /** Full storage path prefix, e.g. "resigrid/listings/abc" or "resigrid/properties/xyz" */
+  storagePath: string;
+  /** @deprecated use storagePath instead */
+  listingId?: string;
   uploadedUrls: string[];
   onChange: (urls: string[]) => void;
   maxPhotos?: number;
@@ -21,11 +24,13 @@ interface Preview {
 }
 
 export function PhotoUpload({
+  storagePath,
   listingId,
   uploadedUrls,
   onChange,
   maxPhotos = 10,
 }: PhotoUploadProps) {
+  const pathPrefix = storagePath ?? `resigrid/listings/${listingId}`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<Preview[]>(
     uploadedUrls.map((url) => ({ url, uploading: false })),
@@ -51,7 +56,7 @@ export function PhotoUpload({
     const uploadedNew: string[] = [];
     for (let i = 0; i < accepted.length; i++) {
       const file = accepted[i];
-      const path = `resigrid/listings/${listingId}/photo-${Date.now()}-${i}`;
+      const path = `${pathPrefix}/photo-${Date.now()}-${i}`;
       try {
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);

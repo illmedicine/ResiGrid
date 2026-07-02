@@ -13,7 +13,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { unitsCol } from "@/lib/firebase/firestore";
+import { leaseTermsCol, listingsCol, unitsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useActiveLease } from "@/lib/hooks/useActiveLease";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -22,14 +22,14 @@ import { Badge } from "@/components/ui/Badge";
 import { ReputationSummary } from "@/components/tenant/ReputationSummary";
 import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
-import { leaseTermsCol } from "@/lib/firebase/firestore";
-import type { LeaseTermsDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
+import type { LeaseTermsDoc, ListingDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
 
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
   const { lease, loading } = useActiveLease(user?.uid);
   const [myUnit, setMyUnit] = useState<UnitDoc | null>(null);
   const [myProperty, setMyProperty] = useState<PropertyDoc | null>(null);
+  const [myListing, setMyListing] = useState<ListingDoc | null>(null);
   const [copied, setCopied] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [fullySignedLease, setFullySignedLease] = useState<LeaseTermsDoc | null>(null);
@@ -57,6 +57,17 @@ export default function TenantDashboardPage() {
     });
     return unsub;
   }, [myUnit?.propertyId]);
+
+  // Load the published listing for that unit (for photos and listing details)
+  useEffect(() => {
+    if (!myUnit?.id) { setMyListing(null); return; }
+    const q = query(listingsCol(), where("unitId", "==", myUnit.id));
+    return onSnapshot(q, (snap) => {
+      const listings = snap.docs.map((d) => ({ ...d.data(), id: d.id } as ListingDoc));
+      const active = listings.find((l) => l.status === "published") ?? listings[0] ?? null;
+      setMyListing(active);
+    });
+  }, [myUnit?.id]);
 
   // Check for fully signed lease → trigger confetti once per session
   useEffect(() => {
@@ -132,55 +143,63 @@ export default function TenantDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Property & Unit info */}
+      {/* My Home — hero card for tenants with a unit */}
       {myProperty && myUnit && (
-        <Card className="p-5">
-          <CardContent className="flex flex-col gap-3 p-0">
-            <h2 className="text-sm font-semibold text-navy-900 flex items-center gap-2">
-              <Home className="h-4 w-4 text-orange-500" />
-              Your property
-            </h2>
-            <div className="flex items-start gap-4">
-              {/* Property photos */}
-              {myProperty.photos.length > 0 && (
-                <div className="shrink-0">
+        <Card className="overflow-hidden p-0">
+          <CardContent className="flex flex-col gap-0 p-0">
+            {/* Hero photo — prefer listing photos, fall back to property photos */}
+            {(() => {
+              const heroPhotos = myListing?.photos?.length ? myListing.photos : myProperty.photos;
+              return heroPhotos.length > 0 ? (
+                <div className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={myProperty.photos[0]}
+                    src={heroPhotos[0]}
                     alt={myProperty.name}
-                    className="h-24 w-32 rounded-lg object-cover"
+                    className="h-48 w-full object-cover sm:h-64"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy-900/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <p className="text-lg font-bold text-white drop-shadow">{myProperty.name}</p>
+                    <p className="text-sm text-white/80">
+                      Unit {myUnit.unitNumber} · {myUnit.beds} bed · {myUnit.baths} bath
+                      {myUnit.sqft ? ` · ${myUnit.sqft.toLocaleString()} sqft` : ""}
+                    </p>
+                  </div>
+                  <div className="absolute right-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-[10px] font-bold text-white shadow">
+                    MY HOME
+                  </div>
                 </div>
-              )}
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-navy-900">{myProperty.name}</p>
-                <p className="text-xs text-neutral-600">
-                  {myProperty.addressLine1}
-                  {myProperty.addressLine2 && `, ${myProperty.addressLine2}`}
-                </p>
-                <p className="text-xs text-neutral-600">
-                  {myProperty.city}, {myProperty.state} {myProperty.zip}
-                </p>
-                <p className="text-xs text-neutral-500 mt-0.5">
-                  Unit {myUnit.unitNumber} · {myUnit.beds} bed · {myUnit.baths} bath
-                  {myUnit.sqft ? ` · ${myUnit.sqft} sqft` : ""}
-                </p>
+              ) : null;
+            })()}
+
+            {/* Details + photo strip */}
+            <div className="flex flex-col gap-3 p-4">
+              <div className="flex items-center gap-2 text-xs text-neutral-600">
+                <Home className="h-3.5 w-3.5 text-orange-500" />
+                <span>
+                  {myProperty.addressLine1}, {myProperty.city}, {myProperty.state} {myProperty.zip}
+                </span>
               </div>
+
+              {/* Photo strip */}
+              {(() => {
+                const allPhotos = myListing?.photos?.length ? myListing.photos : myProperty.photos;
+                return allPhotos.length > 1 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {allPhotos.slice(1).map((p, i) => (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        key={i}
+                        src={p}
+                        alt={`Photo ${i + 2}`}
+                        className="h-16 w-20 shrink-0 rounded-lg object-cover"
+                      />
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
-            {/* All listing photos */}
-            {myProperty.photos.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {myProperty.photos.slice(1).map((p, i) => (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    key={i}
-                    src={p}
-                    alt={`${myProperty.name} ${i + 2}`}
-                    className="h-16 w-20 shrink-0 rounded-lg object-cover"
-                  />
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       )}

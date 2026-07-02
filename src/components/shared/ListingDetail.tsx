@@ -136,6 +136,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         pmId: listing.ownerId,
         status: "submitted",
         submittedAt: Date.now(),
+        ...(listing.applicationFormId ? { applicationFormId: listing.applicationFormId } : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply");
@@ -332,6 +333,44 @@ export function ListingDetail({ listingId }: { listingId: string }) {
             <Button href="/tenant/messages" size="sm" variant="outline" className="w-fit">
               Check messages
             </Button>
+          </CardContent>
+        </Card>
+      ) : listing.applicationFormId ? (
+        /* Listing has an application form — show direct Apply Now CTA */
+        <Card className="border-orange-200 bg-orange-50 p-5">
+          <CardContent className="flex flex-col gap-3 p-0">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📋</span>
+              <p className="text-sm font-semibold text-navy-900">This property is accepting applications</p>
+            </div>
+            <p className="text-xs text-neutral-600">
+              The property manager has set up a screening process. Apply now and they&apos;ll
+              review your RGE Trust Profile and application details.
+            </p>
+            <Button size="sm" onClick={handleApply} disabled={working}>
+              {working ? "Submitting…" : "Apply Now"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setVisitMode(true)}
+              className="text-xs text-neutral-500 hover:text-orange-600 hover:underline text-left"
+            >
+              Prefer to visit first? Schedule a showing →
+            </button>
+            {visitMode && (
+              <div className="flex flex-col gap-2 border-t border-orange-200 pt-3">
+                <Input
+                  type="date"
+                  label="Preferred visit date"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+                <Button size="sm" variant="outline" onClick={handleScheduleVisit} disabled={working || !visitDate}>
+                  <CalendarCheck className="h-3.5 w-3.5" /> Request visit
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

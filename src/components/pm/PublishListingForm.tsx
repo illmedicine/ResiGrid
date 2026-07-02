@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { Bath, BedDouble, DollarSign, FileText, MapPin, Star } from "lucide-react";
+import { doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
+import { Bath, BedDouble, ClipboardList, DollarSign, FileText, MapPin, Star } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { listingsCol, unitsCol, propertiesCol } from "@/lib/firebase/firestore";
+import { applicationFormsCol, listingsCol, unitsCol, propertiesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { PhotoUpload } from "@/components/pm/PhotoUpload";
-import type { UnitDoc, PropertyDoc } from "@/lib/types/models";
+import type { ApplicationFormDoc, UnitDoc, PropertyDoc } from "@/lib/types/models";
 
 const AMENITIES = [
   "Central A/C & Heat", "In-Unit Washer/Dryer", "Washer/Dryer in Building",
@@ -47,8 +47,19 @@ export function PublishListingForm({ unitId, propertyId }: { unitId: string; pro
   const [property, setProperty] = useState<PropertyDoc | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [amenities, setAmenities] = useState<Set<string>>(new Set());
+  const [applicationForms, setApplicationForms] = useState<ApplicationFormDoc[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load PM's saved application forms
+  useEffect(() => {
+    if (!user) return;
+    const q = query(applicationFormsCol(), where("pmId", "==", user.uid));
+    return onSnapshot(q, (snap) => {
+      setApplicationForms(snap.docs.map((d) => ({ ...d.data(), id: d.id } as ApplicationFormDoc)));
+    });
+  }, [user]);
 
   // Load unit + property data to pre-fill the form
   useEffect(() => {
@@ -122,6 +133,7 @@ export function PublishListingForm({ unitId, propertyId }: { unitId: string; pro
         baths: values.baths,
         photos,
         amenities: Array.from(amenities),
+        ...(selectedFormId ? { applicationFormId: selectedFormId } : {}),
         city: property.city,
         state: property.state,
         zip: property.zip,
@@ -197,10 +209,33 @@ export function PublishListingForm({ unitId, propertyId }: { unitId: string; pro
           Supported: JPG, PNG, WEBP — max 10 photos.
         </p>
         <PhotoUpload
-          listingId={listingId}
+          storagePath={`resigrid/listings/${listingId}`}
           uploadedUrls={photos}
           onChange={setPhotos}
         />
+      </FormSection>
+
+      {/* Application form */}
+      <FormSection icon={ClipboardList} title="Application requirements">
+        <p className="text-xs text-neutral-600">
+          Attach an application form so tenants can apply directly from the listing.
+          Create forms in the <a href="/pm/applications" className="text-orange-600 hover:underline">Applications</a> tab.
+        </p>
+        <select
+          value={selectedFormId}
+          onChange={(e) => setSelectedFormId(e.target.value)}
+          className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-navy-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+        >
+          <option value="">No application form (interest-based only)</option>
+          {applicationForms.map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+        {selectedFormId && (
+          <p className="text-xs text-green-700">
+            ✓ Tenants will see an &quot;Apply Now&quot; button on this listing.
+          </p>
+        )}
       </FormSection>
 
       {/* Amenities */}

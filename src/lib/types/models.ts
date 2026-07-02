@@ -78,6 +78,8 @@ export interface ListingDoc {
   addressLine1?: string;
   /** Source tag for non-ResiGrid listings ("hud_lihtc" or "demo"). */
   source?: "hud_lihtc" | "demo";
+  /** Application form attached by the PM — tenants can apply directly when set. */
+  applicationFormId?: string;
 }
 
 export type ApplicationStatus =

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { doc, setDoc } from "firebase/firestore";
+import { Camera } from "lucide-react";
 import { propertiesCol } from "@/lib/firebase/firestore";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhotoUpload } from "@/components/pm/PhotoUpload";
 
 const schema = z.object({
   name: z.string().min(1, "Property name is required"),
@@ -26,6 +28,8 @@ export function AddPropertyForm({
   ownerId: string;
   onCreated?: (propertyId: string) => void;
 }) {
+  const stableId = useId().replace(/:/g, "").slice(0, 20);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const {
@@ -39,8 +43,7 @@ export function AddPropertyForm({
     setError(null);
     setSubmitting(true);
     try {
-      // Pre-generate the doc ref so we can store the real ID in the data.
-      const ref = doc(propertiesCol());
+      const ref = doc(propertiesCol(), stableId);
       await setDoc(ref, {
         id: ref.id,
         ownerId,
@@ -49,15 +52,16 @@ export function AddPropertyForm({
         city: values.city,
         state: values.state,
         zip: values.zip,
-        photos: [],
+        photos,
         amenities: [],
         unitIds: [],
         createdAt: Date.now(),
       });
       reset();
+      setPhotos([]);
       onCreated?.(ref.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add property. Check that Firestore rules are deployed.");
+      setError(err instanceof Error ? err.message : "Failed to add property.");
     } finally {
       setSubmitting(false);
     }
@@ -81,6 +85,21 @@ export function AddPropertyForm({
         <Input label="State" {...register("state")} error={errors.state?.message} />
         <Input label="ZIP" {...register("zip")} error={errors.zip?.message} />
       </div>
+
+      {/* Property photos */}
+      <div>
+        <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-900">
+          <Camera className="h-4 w-4 text-orange-500" />
+          Property photos <span className="font-normal text-neutral-500">(optional)</span>
+        </p>
+        <PhotoUpload
+          storagePath={`resigrid/properties/${stableId}`}
+          uploadedUrls={photos}
+          onChange={setPhotos}
+          maxPhotos={8}
+        />
+      </div>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : "Add property"}

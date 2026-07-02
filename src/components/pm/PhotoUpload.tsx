@@ -51,7 +51,7 @@ export function PhotoUpload({
     const uploadedNew: string[] = [];
     for (let i = 0; i < accepted.length; i++) {
       const file = accepted[i];
-      const path = `listings/${listingId}/photo-${Date.now()}-${i}`;
+      const path = `resigrid/listings/${listingId}/photo-${Date.now()}-${i}`;
       try {
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);

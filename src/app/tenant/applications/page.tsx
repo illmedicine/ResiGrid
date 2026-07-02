@@ -184,7 +184,7 @@ function ApplicationCard({
     setUploadingCount((c) => c + accepted.length);
     const newUrls: string[] = [];
     for (const file of accepted) {
-      const path = `applications/${tenantId}/${application.id}/${Date.now()}-${file.name}`;
+      const path = `resigrid/applications/${tenantId}/${application.id}/${Date.now()}-${file.name}`;
       try {
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);

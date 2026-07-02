@@ -118,7 +118,7 @@ export default function TenantDocumentsPage() {
     setUploading(true);
     for (const file of Array.from(files)) {
       try {
-        const path = `documents/tenant/${user.uid}/${Date.now()}-${file.name}`;
+        const path = `resigrid/documents/tenant/${user.uid}/${Date.now()}-${file.name}`;
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);
         const url = await getDownloadURL(sRef);

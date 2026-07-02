@@ -131,7 +131,7 @@ export default function PmDocumentsPage() {
     setUploading(true);
     for (const file of Array.from(files)) {
       try {
-        const path = `documents/${user.uid}/${tenantId.trim()}/${Date.now()}-${file.name}`;
+        const path = `resigrid/documents/${user.uid}/${tenantId.trim()}/${Date.now()}-${file.name}`;
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);
         const url = await getDownloadURL(sRef);

@@ -86,7 +86,7 @@ export function MaintenanceRequestForm({
 
     for (let i = 0; i < accepted.length; i++) {
       const file = accepted[i];
-      const path = `maintenance/${propertyId}/${unitId}/${Date.now()}-${i}`;
+      const path = `resigrid/maintenance/${propertyId}/${unitId}/${Date.now()}-${i}`;
       try {
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, file);

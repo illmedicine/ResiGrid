@@ -17,10 +17,26 @@ const firebaseConfig = {
   measurementId: "G-Q63XPNYFTW",
 };
 
+// CoinDrop project — used as the Storage bucket for ResiGrid.
+// ResiGrid's own Storage was blocked by GCP billing propagation.
+// CoinDrop does not use Storage, so this has zero impact on that app.
+const coinDropConfig = {
+  apiKey: "AIzaSyCiDPW1rGWSbL1ozIFIVh3B_IaA8nReeI8",
+  authDomain: "coindrop-e39de.firebaseapp.com",
+  projectId: "coindrop-e39de",
+  storageBucket: "coindrop-e39de.firebasestorage.app",
+  messagingSenderId: "908591498193",
+  appId: "1:908591498193:web:ae4b67e9d13d41e49f16f0",
+};
+
 export const firebaseApp: FirebaseApp =
   getApps()[0] ?? initializeApp(firebaseConfig);
 
+const coinDropApp: FirebaseApp =
+  getApps().find((a) => a.name === "coindrop") ??
+  initializeApp(coinDropConfig, "coindrop");
+
 export const auth: Auth = getAuth(firebaseApp);
 export const db: Firestore = getFirestore(firebaseApp);
-export const storage: FirebaseStorage = getStorage(firebaseApp);
+export const storage: FirebaseStorage = getStorage(coinDropApp);
 export const functions: Functions = getFunctions(firebaseApp);

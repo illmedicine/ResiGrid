@@ -11,8 +11,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -49,8 +49,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-firebase:
-    # Firebase rules deploy — does NOT block the site from going live.
-    # deploy-pages runs independently; this job is best-effort.
+    # Best-effort — never blocks the site from going live
     needs: build
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -64,15 +63,12 @@ jobs:
 
       - run: npm ci
 
-      # Deploy Firestore rules + indexes to the ResiGrid project
       - name: Deploy Firestore rules + indexes (ResiGrid)
         run: npx firebase deploy --only firestore --token "$FIREBASE_TOKEN" --non-interactive
         continue-on-error: true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      # Deploy Storage rules to CoinDrop bucket (ResiGrid uses this for all file uploads)
-      # Temporarily swap rules file so firebase.json points at the correct rules for CoinDrop
       - name: Deploy Storage rules (CoinDrop bucket)
         run: |
           node -e "

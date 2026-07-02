@@ -44,7 +44,7 @@ function formatCountdown(ms: number) {
 function LeaseViewContent() {
   const params = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userDoc } = useAuth();
   const id = params.get("id");
   const [lease, setLease] = useState<LeaseTermsDoc | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +92,11 @@ function LeaseViewContent() {
   async function handleCountersign() {
     if (!id) return;
     setCountersigning(true);
-    await updateDoc(doc(db, "leaseTerms", id), { status: "fully_signed" });
+    await updateDoc(doc(db, "leaseTerms", id), {
+      status: "fully_signed",
+      pmSignedAt: Date.now(),
+      pmDisplayName: user?.displayName ?? userDoc?.displayName ?? "Property Manager",
+    });
     setCountersigning(false);
   }
 
@@ -161,7 +165,7 @@ function LeaseViewContent() {
         )}
       </div>
 
-      <LeasePreviewDoc lease={lease} />
+      <LeasePreviewDoc lease={lease} pmDisplayName={userDoc?.displayName} />
     </div>
   );
 }

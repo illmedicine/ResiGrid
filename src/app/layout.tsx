@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/firebase/hooks";
 import { SpaRedirectHandler } from "@/components/layout/SpaRedirectHandler";
+import { LiveActivityFeed } from "@/components/shared/LiveActivityFeed";
 
 export const metadata: Metadata = {
   title: "ResiGrid — Your Rent. Your Reputation. Zero Fees.",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <AuthProvider>
           <SpaRedirectHandler />
           {children}
+          <LiveActivityFeed />
         </AuthProvider>
       </body>
     </html>

@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/firebase/hooks";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { LeasePreviewDoc } from "@/components/pm/lease/LeasePreviewDoc";
 import type { LeaseTermsDoc } from "@/lib/types/models";
 
 const SIGN_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -101,6 +102,7 @@ export default function TenantLeasePage() {
       await updateDoc(doc(db, "leaseTerms", lease.id), {
         status: "tenant_signed",
         tenantSignedAt: Date.now(),
+        tenantSignatureName: sigName.trim(),
       });
       if (lease.pmId) {
         await sendDM(lease.pmId, user.uid, user.uid,
@@ -175,74 +177,8 @@ export default function TenantLeasePage() {
             </div>
           )}
 
-          {/* Lease terms */}
-          <Card className="p-5">
-            <CardContent className="flex flex-col gap-4 p-0">
-              <h2 className="text-sm font-semibold text-navy-900">Lease Terms</h2>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-neutral-500">Tenant</dt>
-                  <dd className="font-medium text-navy-900">{lease.tenantName}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Term</dt>
-                  <dd className="font-medium text-navy-900">{lease.termType}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Start date</dt>
-                  <dd className="font-medium text-navy-900">{new Date(lease.startDate).toLocaleDateString()}</dd>
-                </div>
-                {lease.endDate && (
-                  <div>
-                    <dt className="text-xs text-neutral-500">End date</dt>
-                    <dd className="font-medium text-navy-900">{new Date(lease.endDate).toLocaleDateString()}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-xs text-neutral-500">Monthly rent</dt>
-                  <dd className="font-medium text-navy-900">${lease.rent.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Security deposit</dt>
-                  <dd className="font-medium text-navy-900">${lease.securityDeposit.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Move-in fee</dt>
-                  <dd className="font-medium text-navy-900">${lease.moveInFee.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Late fee</dt>
-                  <dd className="font-medium text-navy-900">${lease.lateFeeAmount} after {lease.lateFeeDays} days</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Pets</dt>
-                  <dd className="font-medium text-navy-900">{lease.pets.allowed ? `Allowed (max ${lease.pets.maxCount})` : "Not allowed"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Smoking</dt>
-                  <dd className="font-medium text-navy-900">{lease.smokingAllowed ? "Allowed" : "Not allowed"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Parking</dt>
-                  <dd className="font-medium text-navy-900">
-                    {lease.parking.type === "none" ? "None" :
-                     lease.parking.type === "included" ? "Included" :
-                     `Paid — $${lease.parking.monthlyFee}/mo`}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-neutral-500">Quiet hours</dt>
-                  <dd className="font-medium text-navy-900">{lease.quietHoursStart} – {lease.quietHoursEnd}</dd>
-                </div>
-              </dl>
-              {lease.additionalTerms && (
-                <div>
-                  <p className="text-xs font-medium text-neutral-500 mb-1">Additional terms</p>
-                  <p className="text-sm text-navy-900 whitespace-pre-wrap">{lease.additionalTerms}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Full lease document with signatures */}
+          <LeasePreviewDoc lease={lease} />
 
           {/* Signature adoption */}
           {isSent && !isExpired && !signed && (

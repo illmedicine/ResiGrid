@@ -1,13 +1,17 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, type LucideIcon } from "lucide-react";
+import { LogOut, Settings, type LucideIcon } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils/cn";
 import { signOut } from "@/lib/firebase/auth";
 import { useAuth } from "@/lib/firebase/hooks";
 import { Logo } from "@/components/ui/Logo";
+import { getPrestigeTier } from "@/lib/rge/prestige";
+import { db } from "@/lib/firebase/config";
+import type { ReputationScoreDoc } from "@/lib/types/models";
 
 export interface PortalNavItem {
   href: string;
@@ -20,15 +24,51 @@ interface PortalShellProps {
   children: ReactNode;
 }
 
+function UserAvatar({ photoURL, displayName }: { photoURL?: string | null; displayName?: string }) {
+  if (photoURL) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoURL}
+        alt={displayName ?? "Profile"}
+        className="h-8 w-8 rounded-full object-cover ring-2 ring-orange-200"
+      />
+    );
+  }
+  const initials = (displayName ?? "?")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="h-8 w-8 rounded-full bg-navy-900 flex items-center justify-center ring-2 ring-orange-200">
+      <span className="text-xs font-bold text-white">{initials}</span>
+    </div>
+  );
+}
+
 export function PortalShell({ navItems, children }: PortalShellProps) {
   const pathname = usePathname();
-  const { userDoc } = useAuth();
+  const { user, userDoc } = useAuth();
+  const [rgeScore, setRgeScore] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user || userDoc?.role !== "tenant") return;
+    const unsub = onSnapshot(doc(db, "reputationScores", user.uid), (snap) => {
+      if (snap.exists()) setRgeScore((snap.data() as ReputationScoreDoc).score ?? 0);
+    });
+    return unsub;
+  }, [user, userDoc?.role]);
+
+  const prestige = userDoc?.role === "tenant" ? getPrestigeTier(rgeScore) : null;
+  const settingsHref = userDoc?.role === "property_manager" ? "/pm/settings" : "/tenant/settings";
+  const photoURL = user?.photoURL ?? userDoc?.photoURL;
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Desktop nav — logo is IN the flow so it never overlaps content */}
+      {/* Desktop nav */}
       <header className="hidden md:flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-2 z-40">
-        {/* Logo fits within nav height — no absolute/overflow positioning in portals */}
         <Logo size={72} href="/" />
 
         <nav className="flex items-center gap-1">
@@ -40,9 +80,7 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
                 href={item.href}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-                  active
-                    ? "bg-navy-900 text-white"
-                    : "text-navy-900 hover:bg-neutral-100",
+                  active ? "bg-navy-900 text-white" : "text-navy-900 hover:bg-neutral-100",
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -53,9 +91,30 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         </nav>
 
         <div className="flex items-center gap-3">
-          {userDoc && (
-            <span className="text-sm text-neutral-600">{userDoc.displayName}</span>
-          )}
+          {/* Profile picture + name + prestige */}
+          <div className="flex items-center gap-2">
+            <UserAvatar photoURL={photoURL} displayName={userDoc?.displayName} />
+            <div className="flex flex-col leading-tight">
+              {userDoc && (
+                <span className="text-sm font-medium text-navy-900">{userDoc.displayName}</span>
+              )}
+              {prestige && (
+                <span className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold w-fit",
+                  prestige.badgeClass,
+                )}>
+                  {prestige.emoji} {prestige.label}
+                </span>
+              )}
+            </div>
+          </div>
+          <Link
+            href={settingsHref}
+            className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 hover:text-navy-900"
+            title="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
           <button
             onClick={() => signOut()}
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-900 hover:bg-neutral-100"
@@ -66,16 +125,19 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
         </div>
       </header>
 
-      {/* Mobile top bar — logo in flow, no overflow */}
+      {/* Mobile top bar */}
       <header className="flex md:hidden items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 z-40">
         <Logo size={52} href="/" />
-        <button
-          onClick={() => signOut()}
-          aria-label="Sign out"
-          className="rounded-lg p-2 text-navy-900 hover:bg-neutral-100"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <UserAvatar photoURL={photoURL} displayName={userDoc?.displayName} />
+          <button
+            onClick={() => signOut()}
+            aria-label="Sign out"
+            className="rounded-lg p-2 text-navy-900 hover:bg-neutral-100"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <main

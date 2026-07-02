@@ -18,6 +18,7 @@ import type {
   MessageThreadDoc,
   NoticeDoc,
   PaymentDoc,
+  PaymentReviewDoc,
   PropertyDoc,
   PropertyManagerDoc,
   ReputationScoreDoc,
@@ -70,3 +71,5 @@ export const applicationFormsCol = () =>
   typedCollection<ApplicationFormDoc>("applicationForms");
 export const sharedDocumentsCol = () =>
   typedCollection<SharedDocumentDoc>("sharedDocuments");
+export const paymentReviewsCol = () =>
+  typedCollection<PaymentReviewDoc>("paymentReviews");

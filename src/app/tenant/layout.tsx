@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ClipboardList, FileText, FolderOpen, Home, MessageSquare, Search, Wallet, Wrench } from "lucide-react";
+import { ClipboardList, FileText, FolderOpen, Home, MessageSquare, Search, Settings, Wallet, Wrench } from "lucide-react";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { PortalShell, type PortalNavItem } from "@/components/layout/PortalShell";
 
@@ -14,6 +14,7 @@ const navItems: PortalNavItem[] = [
   { href: "/tenant/documents", label: "Documents", icon: FolderOpen },
   { href: "/tenant/messages", label: "Messages", icon: MessageSquare },
   { href: "/tenant/search", label: "Search", icon: Search },
+  { href: "/tenant/settings", label: "Settings", icon: Settings },
 ];
 
 export default function TenantLayout({ children }: { children: ReactNode }) {

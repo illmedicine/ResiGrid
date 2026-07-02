@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/config";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { BADGE_DEFINITIONS } from "@/lib/reputation/badges";
+import { getPrestigeTier, getPrestigeProgress, PRESTIGE_TIERS } from "@/lib/rge/prestige";
 import type { ReputationScoreDoc } from "@/lib/types/models";
 
 export function ReputationSummary({ tenantId }: { tenantId: string }) {
@@ -24,17 +25,67 @@ export function ReputationSummary({ tenantId }: { tenantId: string }) {
   const streak = score?.currentStreak ?? 0;
   const total = onTime + late;
   const pct = total > 0 ? Math.round((onTime / total) * 100) : null;
+  const rgeScore = score?.score ?? 0;
+  const prestige = getPrestigeTier(rgeScore);
+  const progress = getPrestigeProgress(rgeScore);
 
   return (
     <Card className="p-5">
       <CardContent className="flex flex-col gap-4 p-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-navy-900">
-            Payment reputation
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold text-navy-900">RGE Score & Reputation</h2>
+            <p className="text-xs text-neutral-500">Residential Grid Economy standing</p>
+          </div>
           <Award className="h-5 w-5 text-orange-500" />
         </div>
 
+        {/* Prestige tier badge */}
+        <div className="flex items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${prestige.badgeClass}`}
+          >
+            <span className="text-base">{prestige.emoji}</span>
+            {prestige.label}
+          </span>
+          <span className="text-2xl font-bold text-navy-900">{rgeScore.toLocaleString()}</span>
+          <span className="text-xs text-neutral-500">RGE pts</span>
+        </div>
+
+        {/* Progress to next tier */}
+        {progress.nextTier && (
+          <div>
+            <div className="flex justify-between text-[10px] text-neutral-500 mb-1">
+              <span>{prestige.label}</span>
+              <span>{progress.nextTier.emoji} {progress.nextTier.label} in {progress.pointsNeeded} pts</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-orange-400 transition-all duration-700"
+                style={{ width: `${progress.pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Tier ladder */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {PRESTIGE_TIERS.map((tier, i) => (
+            <div key={tier.tier} className="flex items-center gap-1">
+              <span
+                title={`${tier.label} (${tier.minScore}+ pts)`}
+                className={`text-base ${rgeScore >= tier.minScore ? "" : "opacity-30 grayscale"}`}
+              >
+                {tier.emoji}
+              </span>
+              {i < PRESTIGE_TIERS.length - 1 && (
+                <div className={`h-px w-4 ${rgeScore >= PRESTIGE_TIERS[i + 1].minScore ? "bg-orange-400" : "bg-neutral-200"}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Payment stats */}
         <div className="grid grid-cols-3 gap-3 text-center">
           <Stat label="On-time" value={onTime} />
           <Stat label="Streak" value={streak} />
@@ -50,11 +101,15 @@ export function ReputationSummary({ tenantId }: { tenantId: string }) {
             ))}
           </div>
         ) : (
-          <p className="text-xs text-neutral-600">
-            Make on-time payments to start earning badges. Available badges:{" "}
-            {BADGE_DEFINITIONS.map((b) => b.label).join(", ")}.
+          <p className="text-xs text-neutral-500">
+            Make on-time payments to earn badges and increase your RGE score.{" "}
+            {BADGE_DEFINITIONS.map((b) => b.label).join(" · ")}
           </p>
         )}
+
+        <p className="text-[10px] text-neutral-400 border-t border-neutral-100 pt-2">
+          {prestige.description} · Active lease holders earn higher standing in the Residential Grid Economy.
+        </p>
       </CardContent>
     </Card>
   );

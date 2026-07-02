@@ -318,6 +318,7 @@ export interface LeaseParking {
 export interface LeaseTermsDoc {
   id: string;
   pmId: string;
+  pmDisplayName?: string;
   unitId: string;
   propertyId: string;
   tenantId?: string;
@@ -350,7 +351,22 @@ export interface LeaseTermsDoc {
   sentAt?: number;
   viewedAt?: number;
   tenantSignedAt?: number;
+  tenantSignatureName?: string;
+  pmSignedAt?: number;
   signDeadline?: number;    // sentAt + 48 h
+}
+
+export interface PaymentReviewDoc {
+  id: string;
+  paymentId: string;
+  tenantId: string;
+  pmId: string;
+  city?: string;
+  state?: string;
+  tenantReview?: "up" | "down";
+  pmReview?: "up" | "down";
+  tenantReviewedAt?: number;
+  pmReviewedAt?: number;
 }
 
 export interface SharedDocumentDoc {

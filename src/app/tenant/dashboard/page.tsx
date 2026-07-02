@@ -20,8 +20,10 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ReputationSummary } from "@/components/tenant/ReputationSummary";
+import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
-import type { PropertyDoc, UnitDoc } from "@/lib/types/models";
+import { leaseTermsCol } from "@/lib/firebase/firestore";
+import type { LeaseTermsDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
 
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
@@ -29,6 +31,8 @@ export default function TenantDashboardPage() {
   const [myUnit, setMyUnit] = useState<UnitDoc | null>(null);
   const [myProperty, setMyProperty] = useState<PropertyDoc | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [fullySignedLease, setFullySignedLease] = useState<LeaseTermsDoc | null>(null);
 
   // Load the unit the tenant is assigned to
   useEffect(() => {
@@ -54,6 +58,28 @@ export default function TenantDashboardPage() {
     return unsub;
   }, [myUnit?.propertyId]);
 
+  // Check for fully signed lease → trigger confetti once per session
+  useEffect(() => {
+    if (!user) return;
+    const q = query(leaseTermsCol(), where("tenantId", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const signed = snap.docs
+        .map((d) => ({ ...d.data(), id: d.id } as LeaseTermsDoc))
+        .find((l) => l.status === "fully_signed");
+      if (signed) {
+        setFullySignedLease(signed);
+        const key = `confetti_shown_${user.uid}`;
+        const last = sessionStorage.getItem(key);
+        const today = new Date().toDateString();
+        if (last !== today) {
+          sessionStorage.setItem(key, today);
+          setShowConfetti(true);
+        }
+      }
+    });
+    return unsub;
+  }, [user]);
+
   function copyUID() {
     if (!user) return;
     navigator.clipboard.writeText(user.uid);
@@ -63,6 +89,12 @@ export default function TenantDashboardPage() {
 
   return (
     <div className="relative flex flex-col gap-5">
+      {showConfetti && (
+        <ConfettiCelebration
+          message={fullySignedLease ? "Your lease is fully signed!" : undefined}
+          onDone={() => setShowConfetti(false)}
+        />
+      )}
       <WatermarkLogo size={500} opacity={0.04} />
 
       <div>

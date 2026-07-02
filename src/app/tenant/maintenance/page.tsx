@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { onSnapshot, query, where } from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useActiveLease } from "@/lib/hooks/useActiveLease";
-import { useUnit } from "@/lib/hooks/useUnit";
+import { unitsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MaintenanceRequestForm } from "@/components/tenant/MaintenanceRequestForm";
 import { MaintenanceRequestList } from "@/components/shared/MaintenanceRequestList";
+import type { UnitDoc } from "@/lib/types/models";
 
 export default function TenantMaintenancePage() {
   const { user } = useAuth();
   const { lease } = useActiveLease(user?.uid);
-  const { unit } = useUnit(lease?.unitId);
+  const [assignedUnit, setAssignedUnit] = useState<UnitDoc | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Fallback: find the unit where this tenant is set as currentTenantId.
+  // Covers assignment paths that don't create a LeaseDoc (OnboardingWizard, Tenants page).
+  useEffect(() => {
+    if (!user) return;
+    const q = query(unitsCol(), where("currentTenantId", "==", user.uid));
+    return onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        setAssignedUnit({ ...snap.docs[0].data(), id: snap.docs[0].id } as UnitDoc);
+      } else {
+        setAssignedUnit(null);
+      }
+    });
+  }, [user]);
+
+  const unitId = lease?.unitId ?? assignedUnit?.id;
+  const propertyId = assignedUnit?.propertyId ?? "";
+  const hasUnit = Boolean(unitId);
 
   return (
     <div className="flex flex-col gap-5">
@@ -25,7 +45,7 @@ export default function TenantMaintenancePage() {
             Submit and track requests for your unit.
           </p>
         </div>
-        {lease && unit && (
+        {hasUnit && (
           <Button size="sm" onClick={() => setShowForm((v) => !v)}>
             <Plus className="h-4 w-4" />
             New request
@@ -33,7 +53,7 @@ export default function TenantMaintenancePage() {
         )}
       </div>
 
-      {!lease ? (
+      {!hasUnit ? (
         <Card className="p-5">
           <CardContent className="p-0">
             <p className="text-sm text-neutral-600">
@@ -49,8 +69,8 @@ export default function TenantMaintenancePage() {
               <CardContent className="p-0">
                 <MaintenanceRequestForm
                   tenantId={user!.uid}
-                  unitId={lease.unitId}
-                  propertyId={unit?.propertyId ?? ""}
+                  unitId={unitId!}
+                  propertyId={propertyId}
                   onSubmitted={() => setShowForm(false)}
                 />
               </CardContent>

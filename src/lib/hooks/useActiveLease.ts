@@ -19,7 +19,7 @@ export function useActiveLease(tenantId: string | undefined) {
     const q = query(leasesCol(), where("tenantId", "==", tenantId));
     const unsub = onSnapshot(q, (snap) => {
       const now = Date.now();
-      const leases = snap.docs.map((d) => d.data());
+      const leases = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
       const active =
         leases.find((l) => l.endDate >= now) ?? leases[0] ?? null;
       setLease(active);

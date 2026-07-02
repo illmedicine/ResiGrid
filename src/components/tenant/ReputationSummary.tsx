@@ -93,17 +93,36 @@ export function ReputationSummary({ tenantId }: { tenantId: string }) {
         </div>
 
         {score && score.badges.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {score.badges.map((badge) => (
-              <Badge key={badge.id} tone="orange">
-                {badge.label}
-              </Badge>
-            ))}
+          <div className="flex flex-col gap-2">
+            {/* Resident badge gets a featured callout */}
+            {score.badges.find((b) => b.id === "resident") && (
+              <div className="flex items-center gap-2 rounded-xl border border-navy-900/15 bg-navy-900/5 px-3 py-2">
+                <span className="text-xl">🏠</span>
+                <div>
+                  <p className="text-xs font-semibold text-navy-900">Resident</p>
+                  <p className="text-[10px] text-neutral-500">
+                    Signed lease · Member of the Residential Grid Economy
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {score.badges
+                .filter((b) => b.id !== "resident")
+                .map((badge) => (
+                  <Badge key={badge.id} tone="orange">
+                    {badge.label}
+                  </Badge>
+                ))}
+            </div>
           </div>
         ) : (
           <p className="text-xs text-neutral-500">
-            Make on-time payments to earn badges and increase your RGE score.{" "}
-            {BADGE_DEFINITIONS.map((b) => b.label).join(" · ")}
+            Sign a lease to earn your Resident badge, then make on-time payments
+            to build your RGE score.{" "}
+            {BADGE_DEFINITIONS.filter((b) => b.id !== "resident")
+              .map((b) => b.label)
+              .join(" · ")}
           </p>
         )}
 

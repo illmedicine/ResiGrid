@@ -10,19 +10,19 @@ const REASONS = {
   trial_expired: {
     eyebrow: "Free trial ended",
     heading: "Your 3-day trial has ended",
-    sub: "Activate your first property to restore full access. One-time fee — no monthly charges.",
+    sub: "Choose a plan and activate your portal. Annual onboarding fee · $1/mo per occupied unit.",
     urgentBanner: true,
   },
   trial: {
     eyebrow: "Activate before your trial ends",
     heading: "Lock in your access",
-    sub: "Pay once. No subscriptions. Keep all Property Management features forever.",
+    sub: "Pick your tier. All features included. Only pay for occupied units.",
     urgentBanner: false,
   },
   default: {
     eyebrow: `Property Manager Activation · ${TRIAL_DAYS}-day free trial included`,
-    heading: "Activate your property on ResiGrid",
-    sub: "One-time fee · No subscriptions · Add more properties anytime",
+    heading: "Join the ResiGrid",
+    sub: "Annual onboarding from $40 · $1/mo per occupied unit · All features in every tier",
     urgentBanner: false,
   },
 } as const;

@@ -34,7 +34,11 @@ export function useOwnerMaintenanceRequests(ownerId: string | undefined) {
       unsubRequests = onSnapshot(
         reqQ,
         (snap) => {
-          setRequests(snap.docs.map((d) => d.data()));
+          setRequests(
+            snap.docs
+              .map((d) => ({ ...d.data(), id: d.id } as MaintenanceRequestDoc))
+              .sort((a, b) => b.createdAt - a.createdAt),
+          );
           setLoading(false);
         },
         () => setLoading(false),

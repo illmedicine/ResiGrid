@@ -57,7 +57,7 @@ export function TrialBanner({ trial }: TrialBannerProps) {
               : "bg-orange-500 text-white hover:bg-orange-600"
         }`}
       >
-        Activate — $40
+        Activate — from $40/yr
       </Link>
     </div>
   );

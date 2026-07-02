@@ -5,6 +5,7 @@ export { getVoucherPreview } from "./payments/getVoucherPreview";
 export { getSquareConnectUrl, completeSquareOAuth } from "./payments/squareConnect";
 export { getSquareConnectionStatus } from "./payments/connectionStatus";
 export { recalcReputationOnPayment } from "./reputation/recalc";
+export { awardResidentBadge } from "./reputation/awardResidentBadge";
 export { notifyOnMaintenanceRequest } from "./maintenance/notify";
 export { notifyOnNewMessage } from "./messaging/notify";
 export { onUserDocCreated } from "./auth/onUserCreate";

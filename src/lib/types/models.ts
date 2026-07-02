@@ -274,6 +274,8 @@ export interface NoticeDoc {
   createdAt: number;
 }
 
+export type PMTier = "starter" | "growth" | "mega";
+
 export interface PMEntitlement {
   propertyId: string;
   address: string;
@@ -286,6 +288,10 @@ export interface PMEntitlement {
 export interface PMSubscriptionDoc {
   uid: string;
   active: boolean;
+  /** Current pricing tier (starter / growth / mega). */
+  tier?: PMTier;
+  /** Unix ms when the annual tier subscription expires. */
+  tierExpiresAt?: number;
   entitlements: PMEntitlement[];
   totalPaid: number;
   updatedAt: number;

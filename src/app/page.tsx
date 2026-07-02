@@ -220,6 +220,47 @@ export default function Home() {
         </Link>
       </section>
 
+      {/* ── Pricing teaser ───────────────────────────────────────── */}
+      <section className="bg-white px-4 py-16">
+        <p className="mb-2 text-center text-xs font-semibold uppercase tracking-widest text-orange-500">
+          Transparent Pricing
+        </p>
+        <h2 className="mb-3 text-center text-2xl font-bold text-navy-900 md:text-3xl">
+          Pay for Occupied Units.{" "}
+          <span className="text-orange-500">Never for Empty Ones.</span>
+        </h2>
+        <p className="mx-auto mb-10 max-w-xl text-center text-sm text-neutral-600">
+          AppFolio charges a $280 monthly minimum even when your units are empty.
+          DoorLoop locks free tenant ACH behind their $209/month Premium tier.
+          ResiGrid charges a low annual onboarding fee, then just $1/month per
+          occupied unit — with zero tenant fees and zero feature gating.
+        </p>
+        <div className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-3">
+          <PricingTeaser
+            name="Starter Grid"
+            annualFee={40}
+            capacity="1 Property · 20 Units"
+          />
+          <PricingTeaser
+            name="Growth Grid"
+            annualFee={80}
+            capacity="5 Properties · 100 Units"
+            highlighted
+          />
+          <PricingTeaser
+            name="Mega Grid"
+            annualFee={400}
+            capacity="Unlimited Everything"
+          />
+        </div>
+        <p className="mt-6 text-center text-sm text-neutral-500">
+          Every tier includes all features.{" "}
+          <Link href="/pricing" className="font-semibold text-orange-600 hover:text-orange-500">
+            Compare plans →
+          </Link>
+        </p>
+      </section>
+
       {/* ── Browse listings CTA band ──────────────────────────────── */}
       <section
         className="relative w-full px-4 py-24 text-center"
@@ -279,6 +320,10 @@ export default function Home() {
             Privacy Policy
           </Link>
           <span className="text-white/20">·</span>
+          <Link href="/pricing" className="transition hover:text-orange-400">
+            Pricing
+          </Link>
+          <span className="text-white/20">·</span>
           <Link href="/listings" className="transition hover:text-orange-400">
             Browse Listings
           </Link>
@@ -311,6 +356,56 @@ function Feature({
       </span>
       <h3 className="text-sm font-bold text-navy-900">{title}</h3>
       <p className="text-xs leading-relaxed text-neutral-600">{description}</p>
+    </div>
+  );
+}
+
+function PricingTeaser({
+  name,
+  annualFee,
+  capacity,
+  highlighted = false,
+}: {
+  name: string;
+  annualFee: number;
+  capacity: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-col items-center gap-2 rounded-2xl border p-5 text-center ${
+        highlighted
+          ? "border-orange-400 bg-navy-900 text-white shadow-lg"
+          : "border-neutral-200 bg-neutral-50"
+      }`}
+    >
+      <p
+        className={`text-xs font-semibold uppercase tracking-wider ${
+          highlighted ? "text-orange-400" : "text-orange-500"
+        }`}
+      >
+        {name}
+      </p>
+      <p
+        className={`text-3xl font-bold ${
+          highlighted ? "text-orange-400" : "text-navy-900"
+        }`}
+      >
+        ${annualFee}
+        <span className={`text-sm font-normal ${highlighted ? "text-white/60" : "text-neutral-500"}`}>
+          /yr
+        </span>
+      </p>
+      <p className={`text-xs ${highlighted ? "text-white/60" : "text-neutral-500"}`}>
+        + $1/mo per occupied unit
+      </p>
+      <p
+        className={`mt-1 rounded-lg px-3 py-1 text-xs font-medium ${
+          highlighted ? "bg-white/10 text-white" : "bg-orange-50 text-navy-900"
+        }`}
+      >
+        {capacity}
+      </p>
     </div>
   );
 }

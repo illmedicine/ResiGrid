@@ -12,6 +12,9 @@ export function PublicNavBar() {
           <Button href="/listings" variant="ghost" size="sm" className="hidden sm:inline-flex">
             Browse Listings
           </Button>
+          <Button href="/pricing" variant="ghost" size="sm" className="hidden sm:inline-flex">
+            Pricing
+          </Button>
           <Button href="/login" variant="primary" size="sm">
             Sign In
           </Button>

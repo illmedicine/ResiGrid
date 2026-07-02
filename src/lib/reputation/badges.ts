@@ -10,6 +10,12 @@ export interface BadgeDefinition {
 
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
+    id: "resident",
+    label: "🏠 Resident",
+    description: "Signed a lease and joined the Residential Grid Economy.",
+    // Awarded by Cloud Function on lease signing — not threshold-based.
+  },
+  {
     id: "first_payment",
     label: "First Payment",
     description: "Made your first on-time rent payment on ResiGrid.",

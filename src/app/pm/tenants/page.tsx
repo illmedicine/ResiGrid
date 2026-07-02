@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   addDoc,
+  deleteDoc,
   doc,
   onSnapshot,
   query,
@@ -10,7 +11,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { CheckCircle2, Search, UserPlus } from "lucide-react";
+import { CheckCircle2, Search, Trash2, UserPlus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import {
   messageThreadsCol,
@@ -258,6 +259,9 @@ function TenantRow({
   searchTerm: string;
 }) {
   const name = useUserDisplayName(tenantId);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   if (
     searchTerm &&
@@ -267,24 +271,78 @@ function TenantRow({
     return null;
   }
 
+  async function handleRemove() {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      // Reset the unit back to vacant if the lease references one
+      if (lease.unitId) {
+        await updateDoc(doc(db, "units", lease.unitId), {
+          currentTenantId: null,
+          currentLeaseId: null,
+          status: "vacant",
+        });
+      }
+      await deleteDoc(doc(db, "leases", lease.id));
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Failed to remove");
+      setRemoving(false);
+      setConfirmRemove(false);
+    }
+  }
+
   return (
     <Card className="p-4">
-      <CardContent className="flex items-center justify-between gap-3 flex-wrap p-0">
-        <div>
-          <p className="text-sm font-semibold text-navy-900">{name ?? tenantId}</p>
-          <p className="font-mono text-[10px] text-neutral-400">UID: {tenantId}</p>
-          <p className="text-xs text-neutral-600 mt-0.5">
-            ${lease.rentAmount.toLocaleString()}/mo · due day {lease.dueDay}
-          </p>
+      <CardContent className="flex flex-col gap-2 p-0">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-navy-900">{name ?? tenantId}</p>
+            <p className="font-mono text-[10px] text-neutral-400">UID: {tenantId}</p>
+            <p className="text-xs text-neutral-600 mt-0.5">
+              ${lease.rentAmount.toLocaleString()}/mo · due day {lease.dueDay}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button href="/pm/messages" size="sm" variant="outline">
+              Message
+            </Button>
+            <Button href="/pm/leases/new" size="sm" variant="outline">
+              New lease
+            </Button>
+            {!confirmRemove ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => setConfirmRemove(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-red-600 font-medium">Remove?</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                  onClick={handleRemove}
+                  disabled={removing}
+                >
+                  {removing ? "Removing…" : "Yes"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmRemove(false)}
+                  disabled={removing}
+                >
+                  No
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button href="/pm/messages" size="sm" variant="outline">
-            Message
-          </Button>
-          <Button href={`/pm/leases/new`} size="sm" variant="outline">
-            New lease
-          </Button>
-        </div>
+        {removeError && <p className="text-xs text-red-600">{removeError}</p>}
       </CardContent>
     </Card>
   );

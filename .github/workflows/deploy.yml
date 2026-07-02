@@ -49,8 +49,11 @@ jobs:
         uses: actions/deploy-pages@v4
 
   deploy-firebase:
+    # Firebase rules deploy — does NOT block the site from going live.
+    # deploy-pages runs independently; this job is best-effort.
     needs: build
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -61,14 +64,24 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy Firestore rules + indexes
+      # Deploy Firestore rules + indexes to the ResiGrid project
+      - name: Deploy Firestore rules + indexes (ResiGrid)
         run: npx firebase deploy --only firestore --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
-      - name: Deploy Storage rules
-        run: npx firebase deploy --only storage --token "$FIREBASE_TOKEN" --non-interactive
+      # Deploy Storage rules to CoinDrop bucket (ResiGrid uses this for all file uploads)
+      # Temporarily swap rules file so firebase.json points at the correct rules for CoinDrop
+      - name: Deploy Storage rules (CoinDrop bucket)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('firebase.json', 'utf8'));
+            cfg.storage.rules = 'coindrop.storage.rules';
+            fs.writeFileSync('firebase.json', JSON.stringify(cfg, null, 2));
+          "
+          npx firebase deploy --only storage --project coindrop-e39de --token "$FIREBASE_TOKEN" --non-interactive
+        continue-on-error: true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        # Will succeed once Firebase Storage is enabled in the console
-        continue-on-error: true

@@ -29,5 +29,15 @@ service firebase.storage {
     match /leases/{leaseId}/{allPaths=**} {
       allow read, write: if false;
     }
+
+    // Shared documents between PM and tenant.
+    match /documents/{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Application attachments — signed-in users only.
+    match /applications/{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
   }
 }

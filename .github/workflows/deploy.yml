@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
@@ -30,10 +30,6 @@ jobs:
       - name: Build (static export)
         run: npm run build
         env:
-          # Firebase web config and Square public IDs are hardcoded in source
-          # (they're public browser identifiers, safe to commit).
-          # No secrets needed here — sensitive keys live only in functions/.env.local
-          # and Firebase Functions secrets, never in the Next.js frontend.
           NEXT_PUBLIC_BASE_PATH: ""
 
       - uses: actions/configure-pages@v5
@@ -42,7 +38,7 @@ jobs:
         with:
           path: out
 
-  deploy:
+  deploy-pages:
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -51,3 +47,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-firebase:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy Firestore rules + indexes
+        run: npx firebase deploy --only firestore --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy Storage rules
+        run: npx firebase deploy --only storage --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        # Will succeed once Firebase Storage is enabled in the console
+        continue-on-error: true

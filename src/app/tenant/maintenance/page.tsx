@@ -5,35 +5,40 @@ import { onSnapshot, query, where } from "firebase/firestore";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useActiveLease } from "@/lib/hooks/useActiveLease";
-import { unitsCol } from "@/lib/firebase/firestore";
+import { leaseTermsCol, unitsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { MaintenanceRequestForm } from "@/components/tenant/MaintenanceRequestForm";
 import { MaintenanceRequestList } from "@/components/shared/MaintenanceRequestList";
-import type { UnitDoc } from "@/lib/types/models";
+import type { LeaseTermsDoc, UnitDoc } from "@/lib/types/models";
 
 export default function TenantMaintenancePage() {
   const { user } = useAuth();
   const { lease } = useActiveLease(user?.uid);
   const [assignedUnit, setAssignedUnit] = useState<UnitDoc | null>(null);
+  const [signedLease, setSignedLease] = useState<LeaseTermsDoc | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  // Fallback: find the unit where this tenant is set as currentTenantId.
-  // Covers assignment paths that don't create a LeaseDoc (OnboardingWizard, Tenants page).
+  // Fallback 1: unit with currentTenantId set (OnboardingWizard / Tenants page assignment).
   useEffect(() => {
     if (!user) return;
     const q = query(unitsCol(), where("currentTenantId", "==", user.uid));
     return onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        setAssignedUnit({ ...snap.docs[0].data(), id: snap.docs[0].id } as UnitDoc);
-      } else {
-        setAssignedUnit(null);
-      }
+      setAssignedUnit(snap.empty ? null : ({ ...snap.docs[0].data(), id: snap.docs[0].id } as UnitDoc));
     });
   }, [user]);
 
-  const unitId = lease?.unitId ?? assignedUnit?.id;
-  const propertyId = assignedUnit?.propertyId ?? "";
+  // Fallback 2: fully-signed leaseTerms doc (lease builder flow without unit update).
+  useEffect(() => {
+    if (!user) return;
+    const q = query(leaseTermsCol(), where("tenantId", "==", user.uid), where("status", "==", "fully_signed"));
+    return onSnapshot(q, (snap) => {
+      setSignedLease(snap.empty ? null : ({ ...snap.docs[0].data(), id: snap.docs[0].id } as LeaseTermsDoc));
+    });
+  }, [user]);
+
+  const unitId = lease?.unitId ?? assignedUnit?.id ?? signedLease?.unitId;
+  const propertyId = assignedUnit?.propertyId ?? signedLease?.propertyId ?? "";
   const hasUnit = Boolean(unitId);
 
   return (

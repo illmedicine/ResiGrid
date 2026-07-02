@@ -90,13 +90,20 @@ function LeaseViewContent() {
   }
 
   async function handleCountersign() {
-    if (!id) return;
+    if (!id || !lease) return;
     setCountersigning(true);
     await updateDoc(doc(db, "leaseTerms", id), {
       status: "fully_signed",
       pmSignedAt: Date.now(),
       pmDisplayName: user?.displayName ?? userDoc?.displayName ?? "Property Manager",
     });
+    // Mark unit as occupied so tenant can access maintenance, payments, etc.
+    if (lease.unitId && lease.tenantId) {
+      await updateDoc(doc(db, "units", lease.unitId), {
+        status: "occupied",
+        currentTenantId: lease.tenantId,
+      });
+    }
     setCountersigning(false);
   }
 
@@ -160,6 +167,14 @@ function LeaseViewContent() {
             <span className="text-xs text-green-700">
               Tenant signed on {new Date(lease.tenantSignedAt).toLocaleString()}
               {lease.status === "tenant_signed" && " — your countersignature is needed."}
+            </span>
+          </div>
+        )}
+        {lease.pmSignedAt && (
+          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+            <span className="text-xs text-green-700">
+              Property manager signed on {new Date(lease.pmSignedAt).toLocaleString()}
             </span>
           </div>
         )}

@@ -100,7 +100,9 @@ service cloud.firestore {
 
     // --- Payments (written only by Cloud Functions via admin SDK) ---
     match /payments/{paymentId} {
-      allow read: if isSignedIn() && resource.data.tenantId == request.auth.uid;
+      allow read: if isSignedIn() &&
+        (resource.data.tenantId == request.auth.uid ||
+         resource.data.pmId == request.auth.uid);
       allow write: if false;
     }
 

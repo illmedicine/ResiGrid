@@ -74,9 +74,11 @@ export async function claimVoucherForUid(uid: string, claimToken: string): Promi
 
   await recordCompletedPayment({
     tenantId: voucher.senderId,
+    pmId: uid,
     amount: voucher.amount,
     voucherId: voucherDoc.id,
     leaseId: voucher.leaseId,
+    leaseTermsId: (voucher as any).leaseTermsId,
   });
 
   // If this PM has no subscription doc yet, grant them free portal access

@@ -32,7 +32,9 @@ export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export interface PaymentDoc {
   id: string;
   leaseId?: string;
+  leaseTermsId?: string;
   tenantId: string;
+  pmId?: string;
   amount: number;
   method: "card" | "voucher";
   status: PaymentStatus;

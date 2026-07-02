@@ -16,9 +16,15 @@ const VOUCHER_EXPIRY_DAYS = 14;
 
 interface CreateVoucherRequest {
   amount: number;
-  recipientContact: string;
+  /** PM's UID — preferred; skips email search when provided. */
+  pmId?: string;
+  /** Recipient email or phone — used when pmId is absent (pay-anyone flow). */
+  recipientContact?: string;
   sourceId: string;
+  /** ID in the `leases` collection (legacy assign-tenant path). */
   leaseId?: string;
+  /** ID in the `leaseTerms` collection (lease builder path). */
+  leaseTermsId?: string;
 }
 
 interface CreateVoucherResponse {
@@ -35,26 +41,46 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
       throw new HttpsError("unauthenticated", "Sign in to make a payment.");
     }
 
-    const { amount, recipientContact, sourceId, leaseId } = request.data;
+    const { amount, pmId, recipientContact, sourceId, leaseId, leaseTermsId } = request.data;
     if (!amount || amount <= 0) {
       throw new HttpsError("invalid-argument", "Amount must be greater than 0.");
     }
-    if (!recipientContact || !sourceId) {
-      throw new HttpsError("invalid-argument", "Missing recipient or card details.");
+    if (!pmId && !recipientContact) {
+      throw new HttpsError("invalid-argument", "Provide a recipient (PM ID or contact).");
+    }
+    if (!sourceId) {
+      throw new HttpsError("invalid-argument", "Missing card details.");
     }
 
-    // Is the recipient an existing ResiGrid property manager with Square connected?
-    const recipientSnap = await db
-      .collection("users")
-      .where("email", "==", recipientContact)
-      .limit(1)
-      .get();
-    const recipientDoc = recipientSnap.docs[0];
-    const recipientUser = recipientDoc?.data() as UserDoc | undefined;
+    // Resolve the recipient — prefer direct UID lookup, fall back to email search.
+    let recipientUserId: string | undefined;
+    let recipientUser: UserDoc | undefined;
+    let effectiveRecipientContact = recipientContact ?? "";
 
+    if (pmId) {
+      const userSnap = await db.collection("users").doc(pmId).get();
+      if (userSnap.exists) {
+        recipientUserId = pmId;
+        recipientUser = userSnap.data() as UserDoc;
+        effectiveRecipientContact = recipientUser.email;
+      }
+    } else if (recipientContact) {
+      const recipientSnap = await db
+        .collection("users")
+        .where("email", "==", recipientContact)
+        .limit(1)
+        .get();
+      const recipientDoc = recipientSnap.docs[0];
+      if (recipientDoc) {
+        recipientUserId = recipientDoc.id;
+        recipientUser = recipientDoc.data() as UserDoc;
+      }
+    }
+
+    // Check if the recipient PM has Square connected.
     let recipientConnection: SquareConnectionDoc | undefined;
-    if (recipientUser?.role === "property_manager" && recipientDoc) {
-      const connSnap = await db.collection("squareConnections").doc(recipientDoc.id).get();
+    if (recipientUser?.role === "property_manager" && recipientUserId) {
+      const connSnap = await db.collection("squareConnections").doc(recipientUserId).get();
       recipientConnection = connSnap.exists ? (connSnap.data() as SquareConnectionDoc) : undefined;
     }
 
@@ -62,8 +88,8 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
     const voucherRef = db.collection("vouchers").doc();
 
     if (recipientConnection) {
-      // Recipient is connected — charge straight into their Square account
-      // so Square pays them out on its normal schedule. No claim step needed.
+      // PM is connected — charge straight into their Square account.
+      // Square pays them out on its normal schedule. No claim step needed.
       const recipientClient = getSquareClientForAccessToken(recipientConnection.accessToken);
       let squarePaymentId: string;
       try {
@@ -86,8 +112,8 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
       const voucher: VoucherDoc = {
         id: voucherRef.id,
         senderId,
-        recipientContact,
-        recipientUserId: recipientDoc!.id,
+        recipientContact: effectiveRecipientContact,
+        recipientUserId,
         amount,
         squarePaymentId,
         status: "paid_out",
@@ -96,15 +122,20 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
         expiresAt: now,
       };
       await voucherRef.set(voucher);
-      await recordCompletedPayment({ tenantId: senderId, amount, voucherId: voucherRef.id, leaseId });
+      await recordCompletedPayment({
+        tenantId: senderId,
+        pmId: recipientUserId,
+        amount,
+        voucherId: voucherRef.id,
+        leaseId,
+        leaseTermsId,
+      });
 
       return { voucherId: voucherRef.id, status: voucher.status };
     }
 
-    // Recipient isn't connected yet — securely save the card on file under
-    // ResiGrid's own platform Square account and defer the actual charge
-    // until they claim the voucher (see claimVoucher.ts). We never touch
-    // raw card data ourselves; Square handles tokenization end-to-end.
+    // PM isn't connected yet — save card on file and defer the charge
+    // until they claim the voucher (see claimVoucher.ts).
     const platform = getSquareClient();
     let customerId: string;
     let cardId: string;
@@ -136,7 +167,8 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
     const voucher: VoucherDoc = {
       id: voucherRef.id,
       senderId,
-      recipientContact,
+      recipientContact: effectiveRecipientContact,
+      recipientUserId,
       amount,
       squareCustomerId: customerId,
       squareCardId: cardId,
@@ -147,17 +179,17 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
     };
     await voucherRef.set(voucher);
 
-    if (leaseId) {
-      await voucherRef.update({ leaseId });
-    }
+    if (leaseId) await voucherRef.update({ leaseId });
+    if (leaseTermsId) await voucherRef.update({ leaseTermsId });
+    if (pmId) await voucherRef.update({ recipientUserId: pmId });
 
-    // Notify the recipient — non-fatal if it fails so the payment always succeeds.
+    // Notify the recipient — non-fatal so the payment always succeeds.
     try {
       const senderSnap = await db.collection("users").doc(senderId).get();
       const senderName =
         (senderSnap.data() as UserDoc | undefined)?.displayName ?? "Your tenant";
       await notifyVoucherRecipient({
-        recipientContact,
+        recipientContact: effectiveRecipientContact,
         senderName,
         amountUsd: amount,
         claimToken,

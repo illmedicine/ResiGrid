@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ResiGrid uses this bucket for all file storage.
+    // All ResiGrid uploads are scoped under the resigrid/ prefix.
+    // CoinDrop does not use Storage, so this has no impact on that app.
+    match /resigrid/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

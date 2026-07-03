@@ -20,6 +20,9 @@ const schema = z.object({
   city: z.string().min(1, "City is required"),
   state: z.string().min(2, "State is required"),
   zip: z.string().min(5, "ZIP code is required"),
+  termsAgreed: z.literal(true, {
+    message: "You must agree to the billing terms to continue.",
+  }),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -40,10 +43,13 @@ export function PropertyCheckoutForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
   });
+
+  const termsAgreed = watch("termsAgreed");
 
   const tier = PM_TIERS[selectedTier];
 
@@ -159,7 +165,7 @@ export function PropertyCheckoutForm() {
       {/* ── Pricing summary ── */}
       <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
         <p className="text-xs text-neutral-600">
-          {tier.capacityLabel} · Annual onboarding due today
+          {tier.capacityLabel} · Annual subscription — due today
         </p>
         <p className="mt-1 text-2xl font-bold text-navy-900">
           ${tier.annualFee}
@@ -168,13 +174,13 @@ export function PropertyCheckoutForm() {
           </span>
         </p>
         <p className="mt-0.5 text-xs text-neutral-500">
-          Then $1/month per occupied unit (billed monthly)
+          Then $1/month per occupied unit, billed monthly every 30 days
         </p>
         <ul className="mt-3 space-y-1 text-xs text-neutral-600">
           <CheckItem text="All features included — nothing gated" />
-          <CheckItem text="$0 tenant ACH fee — always" />
-          <CheckItem text="No charge for vacant units" />
-          <CheckItem text="Renews annually — cancel anytime" />
+          <CheckItem text="$0 tenant transaction fee — always" />
+          <CheckItem text="Vacant units never billed" />
+          <CheckItem text="Annual plan auto-renews — cancel anytime" />
         </ul>
       </div>
 
@@ -186,11 +192,35 @@ export function PropertyCheckoutForm() {
         <SquareCardField onReady={setCard} />
       </div>
 
+      {/* ── Terms agreement ── */}
+      <div className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+        <input
+          id="termsAgreed"
+          type="checkbox"
+          {...register("termsAgreed")}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-neutral-300 accent-orange-500"
+        />
+        <label htmlFor="termsAgreed" className="cursor-pointer text-xs leading-relaxed text-neutral-600">
+          I agree to the{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-navy-900">
+            ResiGrid Grid Contract
+          </a>
+          . I authorize ResiGrid to charge{" "}
+          <strong className="text-navy-900">${tier.annualFee} today</strong> and{" "}
+          <strong className="text-navy-900">$1/month per occupied unit</strong> every 30 days
+          from activation. My annual subscription renews automatically each year. I understand
+          I can cancel at any time from my account settings.
+        </label>
+      </div>
+      {errors.termsAgreed && (
+        <p className="text-xs text-red-600">{errors.termsAgreed.message as string}</p>
+      )}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <Button
         type="submit"
-        disabled={submitting || !card}
+        disabled={submitting || !card || !termsAgreed}
         size="lg"
         className="w-full"
       >
@@ -198,8 +228,8 @@ export function PropertyCheckoutForm() {
       </Button>
 
       <p className="text-center text-xs text-neutral-500">
-        Annual onboarding fee. Monthly per-unit billing starts after activation.
-        Payments processed by Square.
+        Recurring annual subscription · Monthly per-unit billing after activation.
+        Payments processed securely by Square.
       </p>
     </form>
   );

@@ -18,8 +18,10 @@ export function PMSubscriptionGate({ children }: { children: ReactNode }) {
   // Access matrix:
   //  ✅ Paid (isActive)          → full access, no banner
   //  ✅ Within free trial        → full access + countdown banner
+  //  ✅ Team member (teamAdminId)→ full access to assigned properties, no subscription needed
   //  🔒 Trial expired + unpaid  → redirect to checkout
-  const hasAccess = isActive || trial.inTrial;
+  const isTeamMember = !!userDoc?.teamAdminId;
+  const hasAccess = isActive || trial.inTrial || isTeamMember;
 
   useEffect(() => {
     if (loading) return;
@@ -38,8 +40,7 @@ export function PMSubscriptionGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {/* Countdown banner only shows during trial (not after activation) */}
-      {!isActive && trial.inTrial && <TrialBanner trial={trial} />}
+      {!isActive && !isTeamMember && trial.inTrial && <TrialBanner trial={trial} />}
       {children}
     </>
   );

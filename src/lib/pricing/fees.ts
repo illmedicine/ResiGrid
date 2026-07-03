@@ -9,6 +9,7 @@ export interface TierConfig {
   maxProperties: number | null;
   maxUnitsPerProperty: number | null;
   maxTotalUnits: number | null;
+  maxTeamMembers: number;
   capacityLabel: string;
 }
 
@@ -22,6 +23,7 @@ export const PM_TIERS: Record<PMTier, TierConfig> = {
     maxProperties: 1,
     maxUnitsPerProperty: 20,
     maxTotalUnits: 20,
+    maxTeamMembers: 1,
     capacityLabel: "1 Property · Up to 20 Units",
   },
   growth: {
@@ -33,6 +35,7 @@ export const PM_TIERS: Record<PMTier, TierConfig> = {
     maxProperties: 5,
     maxUnitsPerProperty: 20,
     maxTotalUnits: 100,
+    maxTeamMembers: 5,
     capacityLabel: "Up to 5 Properties · 100 Units total",
   },
   mega: {
@@ -44,6 +47,7 @@ export const PM_TIERS: Record<PMTier, TierConfig> = {
     maxProperties: null,
     maxUnitsPerProperty: null,
     maxTotalUnits: null,
+    maxTeamMembers: 50,
     capacityLabel: "Unlimited Properties & Units",
   },
 };

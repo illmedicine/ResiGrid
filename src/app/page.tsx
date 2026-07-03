@@ -64,18 +64,30 @@ export default function Home() {
               <span className="rounded-full bg-orange-100 p-3 text-orange-600">
                 <Building2 className="h-6 w-6" />
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-navy-900">I&apos;m a Property Owner</h2>
                 <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
                   START HERE
                 </span>
               </div>
-              <p className="text-sm text-neutral-600">
-                List your properties, screen tenants via RGE Score, collect rent fee-free,
-                and manage your entire portfolio in one place.{" "}
-                <strong className="text-navy-900">Only pay for occupied units.</strong>
+              <p className="text-sm text-neutral-600 leading-relaxed">
+                The complete property management command center — built for landlords who mean business.
+                Upload property photos, publish listings, and screen applicants with verified{" "}
+                <strong className="text-navy-900">RGE Scores</strong> in minutes — not days.
               </p>
-              <span className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-orange-600">
+              <ul className="flex flex-col gap-1.5 text-xs text-neutral-600">
+                <li className="flex items-start gap-1.5"><span className="mt-0.5 text-orange-500">✦</span><span><strong className="text-navy-900">Go live in 1 minute.</strong> Add a property, upload photos, post a listing — done.</span></li>
+                <li className="flex items-start gap-1.5"><span className="mt-0.5 text-orange-500">✦</span><span><strong className="text-navy-900">Custom leases & applications.</strong> Build from our template library. E-sign ready.</span></li>
+                <li className="flex items-start gap-1.5"><span className="mt-0.5 text-orange-500">✦</span><span><strong className="text-navy-900">Collect rent fee-free.</strong> Tenants pay $0 in transaction fees — always.</span></li>
+                <li className="flex items-start gap-1.5"><span className="mt-0.5 text-orange-500">✦</span><span><strong className="text-navy-900">Team access.</strong> Invite co-managers and assign them specific properties.</span></li>
+                <li className="flex items-start gap-1.5"><span className="mt-0.5 text-orange-500">✦</span><span><strong className="text-navy-900">One stop shop.</strong> Maintenance, notices, documents, messages — all in one portal.</span></li>
+              </ul>
+              <p className="text-xs text-neutral-500">
+                Solo landlord or 500-unit portfolio —{" "}
+                <strong className="text-navy-900">only pay for occupied units.</strong>{" "}
+                Vacant units are always free.
+              </p>
+              <span className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-orange-600">
                 Start free for 3 days →
               </span>
             </CardContent>

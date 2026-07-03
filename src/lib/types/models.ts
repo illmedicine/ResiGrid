@@ -8,6 +8,24 @@ export interface UserDoc {
   photoURL?: string;
   phone?: string;
   createdAt: number;
+  /** Set when this user is a team member — the uid of the PM admin who invited them */
+  teamAdminId?: string;
+  /** Properties this team member has been granted access to */
+  teamPropertyIds?: string[];
+}
+
+export type TeamInviteStatus = "pending" | "accepted" | "revoked";
+
+export interface PMTeamInviteDoc {
+  id: string;
+  adminId: string;
+  adminName: string;
+  email: string;
+  propertyIds: string[];
+  status: TeamInviteStatus;
+  createdAt: number;
+  acceptedAt?: number;
+  memberId?: string;
 }
 
 export interface PropertyManagerDoc {

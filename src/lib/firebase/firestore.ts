@@ -21,6 +21,7 @@ import type {
   NoticeDoc,
   PaymentDoc,
   PaymentReviewDoc,
+  PMTeamInviteDoc,
   PropertyDoc,
   PropertyManagerDoc,
   ReputationScoreDoc,
@@ -79,3 +80,5 @@ export const paymentReviewsCol = () =>
   typedCollection<PaymentReviewDoc>("paymentReviews");
 export const nationalListingsCol = () =>
   typedCollection<NationalListingDoc>("nationalListings");
+export const pmTeamInvitesCol = () =>
+  typedCollection<PMTeamInviteDoc>("pmTeamInvites");

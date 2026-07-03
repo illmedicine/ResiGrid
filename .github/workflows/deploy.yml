@@ -32,6 +32,10 @@ jobs:
         run: npm ci
         working-directory: functions
 
+      - name: Build Cloud Functions (TypeScript → lib/)
+        run: npm run build
+        working-directory: functions
+
       - name: Fix Cloud Build service account IAM permissions
         run: |
           node << 'NODEEOF'

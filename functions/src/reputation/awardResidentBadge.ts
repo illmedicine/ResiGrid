@@ -39,9 +39,11 @@ export const awardResidentBadge = onDocumentWritten(
       ];
 
       if (existing) {
-        tx.update(ref, { badges });
+        tx.update(ref, {
+          badges,
+          score: Math.max(existing.score ?? 0, 100),
+        });
       } else {
-        // Create a baseline reputation doc if none exists yet
         const baseline: ReputationScoreDoc = {
           tenantId,
           onTimeCount: 0,
@@ -49,7 +51,7 @@ export const awardResidentBadge = onDocumentWritten(
           totalCount: 0,
           currentStreak: 0,
           badges,
-          score: 0,
+          score: 100,
         };
         tx.set(ref, baseline);
       }

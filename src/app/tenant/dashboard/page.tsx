@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { doc, onSnapshot, query, where } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import Link from "next/link";
 import {
   Bell,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   ExternalLink,
   FileText,
@@ -27,6 +37,12 @@ import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 import type { LeaseTermsDoc, ListingDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
 
+const RESIDENT_BADGE = {
+  id: "resident",
+  label: "🏠 Resident",
+  description: "Signed a lease and joined the Residential Grid Economy.",
+};
+
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
   const { lease, loading: leaseLoading } = useActiveLease(user?.uid);
@@ -37,6 +53,8 @@ export default function TenantDashboardPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [fullySignedLease, setFullySignedLease] = useState<LeaseTermsDoc | null>(null);
   const [showInsurance, setShowInsurance] = useState(false);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const slideTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load unit by currentTenantId (PM assignment flow)
   useEffect(() => {
@@ -63,19 +81,16 @@ export default function TenantDashboardPage() {
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0] ?? null;
       setFullySignedLease(signed);
 
-      // If we don't have a unit from the assignment path, load via leaseTerms
       if (signed?.unitId) {
         setMyUnit((prev) => {
-          if (prev) return prev; // assignment path wins
-          return { id: signed.unitId } as UnitDoc; // minimal stub; property load picks it up
+          if (prev) return prev;
+          return { id: signed.unitId } as UnitDoc;
         });
-        // Load full unit doc
         onSnapshot(doc(db, "units", signed.unitId), (uSnap) => {
           if (uSnap.exists()) setMyUnit({ ...uSnap.data(), id: uSnap.id } as UnitDoc);
         });
       }
 
-      // Confetti once per session on lease sign
       if (signed) {
         const key = `confetti_shown_${user.uid}`;
         const last = sessionStorage.getItem(key);
@@ -107,7 +122,7 @@ export default function TenantDashboardPage() {
     });
   }, [myUnit?.propertyId, fullySignedLease?.propertyId]);
 
-  // Load listing (for photos) — try unit id from any path, fallback to leaseTerms
+  // Load listing (for photos) — try unit id from any path, fallback to leaseTerms / lease
   useEffect(() => {
     const id = myUnit?.id ?? fullySignedLease?.unitId ?? lease?.unitId;
     if (!id) { setMyListing(null); return; }
@@ -118,28 +133,75 @@ export default function TenantDashboardPage() {
     });
   }, [myUnit?.id, fullySignedLease?.unitId, lease?.unitId]);
 
+  // Bootstrap resident badge + 100 RGE pts for tenants with a signed lease who haven't been awarded yet
+  const hasSignedLease = Boolean(
+    fullySignedLease || (lease && lease.signedStatus === "fully_signed"),
+  );
+  useEffect(() => {
+    if (!user || !hasSignedLease) return;
+    const ref = doc(db, "reputationScores", user.uid);
+    getDoc(ref).then((snap) => {
+      const data = snap.data();
+      if (data?.badges?.some((b: { id: string }) => b.id === "resident")) return;
+      const badge = { ...RESIDENT_BADGE, earnedAt: Date.now() };
+      if (snap.exists()) {
+        updateDoc(ref, {
+          badges: [...(data?.badges ?? []), badge],
+          score: Math.max(data?.score ?? 0, 100),
+        });
+      } else {
+        setDoc(ref, {
+          tenantId: user.uid,
+          onTimeCount: 0,
+          lateCount: 0,
+          totalCount: 0,
+          currentStreak: 0,
+          badges: [badge],
+          score: 100,
+        });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, hasSignedLease]);
+
+  const heroPhotos: string[] = myListing?.photos?.length
+    ? myListing.photos
+    : (myProperty?.photos ?? []);
+
+  // Auto-advance hero slider
+  useEffect(() => {
+    if (heroPhotos.length <= 1) return;
+    if (slideTimer.current) clearInterval(slideTimer.current);
+    slideTimer.current = setInterval(() => {
+      setHeroSlide((i) => (i + 1) % heroPhotos.length);
+    }, 5000);
+    return () => {
+      if (slideTimer.current) clearInterval(slideTimer.current);
+    };
+  }, [heroPhotos.length]);
+
+  // Reset slide index when photos array changes (different unit loaded)
+  useEffect(() => { setHeroSlide(0); }, [heroPhotos.length]);
+
+  const hasHome = hasSignedLease;
+  const activeLease = lease ?? (fullySignedLease ? {
+    rentAmount: fullySignedLease.rent,
+    dueDay: fullySignedLease.lateFeeDays ?? 1,
+  } : null);
+
+  function prevSlide() {
+    setHeroSlide((i) => (i - 1 + heroPhotos.length) % heroPhotos.length);
+  }
+  function nextSlide() {
+    setHeroSlide((i) => (i + 1) % heroPhotos.length);
+  }
+
   function copyUID() {
     if (!user) return;
     navigator.clipboard.writeText(user.uid);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
-
-  const heroPhotos = myListing?.photos?.length
-    ? myListing.photos
-    : (myProperty?.photos ?? []);
-
-  // "My Home" section only renders for tenants with a signed lease
-  const hasSignedLease = Boolean(
-    fullySignedLease ||
-    (lease && lease.signedStatus === "fully_signed"),
-  );
-  // Show My Home as soon as we know the lease is fully signed — hero has fallback for no-photo state
-  const hasHome = hasSignedLease;
-  const activeLease = lease ?? (fullySignedLease ? {
-    rentAmount: fullySignedLease.rent,
-    dueDay: fullySignedLease.lateFeeDays ?? 1,
-  } : null);
 
   return (
     <div className="relative flex flex-col gap-5">
@@ -151,20 +213,72 @@ export default function TenantDashboardPage() {
       )}
       <WatermarkLogo size={500} opacity={0.04} />
 
-      {/* ── My Home hero ─────────────────────────────────────────── */}
+      {/* ── My Home hero slider ──────────────────────────────────────── */}
       {hasHome && (
         <Card className="overflow-hidden p-0">
           <CardContent className="flex flex-col gap-0 p-0">
-            {/* Hero photo */}
             {heroPhotos.length > 0 ? (
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroPhotos[0]}
-                  alt={myProperty?.name ?? "My home"}
-                  className="h-52 w-full object-cover sm:h-72"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 via-navy-900/20 to-transparent" />
+              <div className="relative h-[60vw] max-h-[520px] min-h-[240px] overflow-hidden bg-navy-900">
+                {/* Slides */}
+                {heroPhotos.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={src}
+                    src={src}
+                    alt={`Home photo ${i + 1}`}
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                      i === heroSlide ? "opacity-100" : "opacity-0 pointer-events-none"
+                    }`}
+                  />
+                ))}
+
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-navy-900/85 via-navy-900/15 to-transparent" />
+
+                {/* MY HOME badge */}
+                <div className="absolute right-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
+                  MY HOME
+                </div>
+
+                {/* Nav arrows — only when multiple photos */}
+                {heroPhotos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevSlide}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-2 text-white backdrop-blur-sm transition hover:bg-black/55"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextSlide}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/35 p-2 text-white backdrop-blur-sm transition hover:bg-black/55"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Dot indicators */}
+                {heroPhotos.length > 1 && (
+                  <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-1.5">
+                    {heroPhotos.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setHeroSlide(i)}
+                        className={`rounded-full transition-all duration-300 ${
+                          i === heroSlide
+                            ? "w-5 h-1.5 bg-white"
+                            : "w-1.5 h-1.5 bg-white/45 hover:bg-white/70"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Text overlay at bottom */}
                 <div className="absolute bottom-0 left-0 right-0 p-4">
                   <p className="text-lg font-bold text-white drop-shadow">
                     {myProperty?.name ?? "My Home"}
@@ -182,12 +296,15 @@ export default function TenantDashboardPage() {
                       {myProperty.addressLine1}, {myProperty.city}, {myProperty.state} {myProperty.zip}
                     </p>
                   )}
-                </div>
-                <div className="absolute right-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-[10px] font-bold text-white shadow">
-                  MY HOME
+                  {heroPhotos.length > 1 && (
+                    <p className="text-[10px] text-white/40 mt-0.5">
+                      {heroSlide + 1} / {heroPhotos.length}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
+              /* No-photo fallback */
               <div className="flex h-28 items-center gap-3 bg-navy-900/5 px-5">
                 <Home className="h-8 w-8 text-orange-500" />
                 <div>
@@ -198,21 +315,6 @@ export default function TenantDashboardPage() {
                     </p>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Photo strip */}
-            {heroPhotos.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto px-4 py-3">
-                {heroPhotos.slice(1).map((p, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={p}
-                    alt={`Photo ${i + 2}`}
-                    className="h-16 w-20 shrink-0 rounded-lg object-cover"
-                  />
-                ))}
               </div>
             )}
           </CardContent>
@@ -244,19 +346,8 @@ export default function TenantDashboardPage() {
 
       {/* ── Primary action cards ──────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ActionCard
-          href="/tenant/pay"
-          icon={Wallet}
-          label="Pay Rent"
-          sub="Fee-free ACH"
-          primary
-        />
-        <ActionCard
-          href="/tenant/maintenance"
-          icon={Wrench}
-          label="Maintenance"
-          sub="Submit a request"
-        />
+        <ActionCard href="/tenant/pay" icon={Wallet} label="Pay Rent" sub="Fee-free ACH" primary />
+        <ActionCard href="/tenant/maintenance" icon={Wrench} label="Maintenance" sub="Submit a request" />
         <button
           type="button"
           onClick={() => setShowInsurance((v) => !v)}
@@ -270,12 +361,7 @@ export default function TenantDashboardPage() {
             <p className="text-xs text-neutral-500">Renter&apos;s coverage</p>
           </div>
         </button>
-        <ActionCard
-          href="/tenant/lease"
-          icon={FileText}
-          label="My Lease"
-          sub="View & sign"
-        />
+        <ActionCard href="/tenant/lease" icon={FileText} label="My Lease" sub="View & sign" />
       </div>
 
       {/* ── Renter's insurance panel ──────────────────────────────── */}
@@ -298,21 +384,9 @@ export default function TenantDashboardPage() {
             </p>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <InsurancePartner
-                name="Lemonade"
-                desc="AI-powered · instant quote"
-                href="https://www.lemonade.com/renters"
-              />
-              <InsurancePartner
-                name="Toggle"
-                desc="Flexible monthly coverage"
-                href="https://www.toggle.com"
-              />
-              <InsurancePartner
-                name="Hippo"
-                desc="Modern home protection"
-                href="https://www.hippo.com"
-              />
+              <InsurancePartner name="Lemonade" desc="AI-powered · instant quote" href="https://www.lemonade.com/renters" />
+              <InsurancePartner name="Toggle" desc="Flexible monthly coverage" href="https://www.toggle.com" />
+              <InsurancePartner name="Hippo" desc="Modern home protection" href="https://www.hippo.com" />
             </div>
 
             <div className="border-t border-neutral-100 pt-3">
@@ -415,17 +489,11 @@ function ActionCard({
             : "border-neutral-200 bg-white"
         }`}
       >
-        <span
-          className={`rounded-xl p-2.5 ${
-            primary ? "bg-white/20 text-white" : "bg-navy-900/5 text-navy-900"
-          }`}
-        >
+        <span className={`rounded-xl p-2.5 ${primary ? "bg-white/20 text-white" : "bg-navy-900/5 text-navy-900"}`}>
           <Icon className="h-5 w-5" />
         </span>
         <div>
-          <p className={`text-sm font-semibold ${primary ? "text-white" : "text-navy-900"}`}>
-            {label}
-          </p>
+          <p className={`text-sm font-semibold ${primary ? "text-white" : "text-navy-900"}`}>{label}</p>
           <p className={`text-xs ${primary ? "text-white/75" : "text-neutral-500"}`}>{sub}</p>
         </div>
       </div>
@@ -433,15 +501,7 @@ function ActionCard({
   );
 }
 
-function InsurancePartner({
-  name,
-  desc,
-  href,
-}: {
-  name: string;
-  desc: string;
-  href: string;
-}) {
+function InsurancePartner({ name, desc, href }: { name: string; desc: string; href: string }) {
   return (
     <a
       href={href}
@@ -458,15 +518,7 @@ function InsurancePartner({
   );
 }
 
-function QuickLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof FileText;
-  label: string;
-}) {
+function QuickLink({ href, icon: Icon, label }: { href: string; icon: typeof FileText; label: string }) {
   return (
     <Link href={href}>
       <Card className="flex items-center gap-3 p-4 transition-shadow hover:shadow-md">

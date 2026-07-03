@@ -87,12 +87,14 @@ export function PayRentForm() {
   const hasLease = Boolean(signedLease);
 
   const leaseForm = useForm<{ amount: number }>({
-    resolver: zodResolver(leaseSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(leaseSchema) as any,
     values: signedLease ? { amount: signedLease.rent } : undefined,
   });
 
   const anyoneForm = useForm<{ amount: number; recipientContact: string }>({
-    resolver: zodResolver(anyoneSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(anyoneSchema) as any,
   });
 
   async function handleLeasePayment(values: { amount: number }) {

@@ -3,14 +3,18 @@
 import { useEffect, useState } from "react";
 import { onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { applicationsCol } from "@/lib/firebase/firestore";
+import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import type { ApplicationDoc } from "@/lib/types/models";
 
 export function useOwnerApplications(ownerId: string | undefined) {
+  const { effectiveId } = useEffectivePMId();
   const [applications, setApplications] = useState<ApplicationDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const queryId = ownerId ? (effectiveId ?? ownerId) : undefined;
+
   useEffect(() => {
-    if (!ownerId) {
+    if (!queryId) {
       setApplications([]);
       setLoading(false);
       return;
@@ -18,7 +22,7 @@ export function useOwnerApplications(ownerId: string | undefined) {
     setLoading(true);
     const q = query(
       applicationsCol(),
-      where("pmId", "==", ownerId),
+      where("pmId", "==", queryId),
       orderBy("submittedAt", "desc"),
     );
     return onSnapshot(
@@ -29,7 +33,7 @@ export function useOwnerApplications(ownerId: string | undefined) {
       },
       () => setLoading(false),
     );
-  }, [ownerId]);
+  }, [queryId]);
 
   return { applications, loading };
 }

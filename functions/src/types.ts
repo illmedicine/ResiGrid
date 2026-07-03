@@ -130,13 +130,28 @@ export interface PMEntitlement {
 export interface PMSubscriptionDoc {
   uid: string;
   active: boolean;
-  /** Current pricing tier (starter / growth / mega). */
   tier?: PMTier;
-  /** Unix ms when the annual tier subscription expires. */
   tierExpiresAt?: number;
   entitlements: PMEntitlement[];
   totalPaid: number;
   updatedAt: number;
-  /** voucherId that activated this PM for free via the payment invite flow. */
   invitedVia?: string;
+  /** Square Customer ID for recurring billing (saved at first checkout). */
+  squareCustomerId?: string;
+  /** Square Card ID (card on file) for recurring billing. */
+  squareCardId?: string;
+}
+
+export type TeamInviteStatus = "pending" | "accepted" | "revoked";
+
+export interface PMTeamInviteDoc {
+  id: string;
+  adminId: string;
+  adminName: string;
+  email: string;
+  propertyIds: string[];
+  status: TeamInviteStatus;
+  createdAt: number;
+  acceptedAt?: number;
+  memberId?: string;
 }

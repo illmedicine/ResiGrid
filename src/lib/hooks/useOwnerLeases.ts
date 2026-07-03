@@ -3,19 +3,23 @@
 import { useEffect, useState } from "react";
 import { onSnapshot, query, where } from "firebase/firestore";
 import { leasesCol } from "@/lib/firebase/firestore";
+import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import type { LeaseDoc } from "@/lib/types/models";
 
 export function useOwnerLeases(pmId: string | undefined) {
+  const { effectiveId } = useEffectivePMId();
   const [leases, setLeases] = useState<LeaseDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const queryId = pmId ? (effectiveId ?? pmId) : undefined;
+
   useEffect(() => {
-    if (!pmId) {
+    if (!queryId) {
       setLeases([]);
       setLoading(false);
       return;
     }
-    const q = query(leasesCol(), where("pmId", "==", pmId));
+    const q = query(leasesCol(), where("pmId", "==", queryId));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -28,7 +32,7 @@ export function useOwnerLeases(pmId: string | undefined) {
       () => setLoading(false),
     );
     return unsub;
-  }, [pmId]);
+  }, [queryId]);
 
   return { leases, loading };
 }

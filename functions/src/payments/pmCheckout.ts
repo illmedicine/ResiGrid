@@ -70,14 +70,49 @@ export const createPMSubscription = onCall<
     const feeUsd = TIER_FEES[tier];
     const now = Date.now();
 
-    // ── Charge ResiGrid's own Square account (annual tier fee) ────────
+    // ── Save card on file for recurring billing, then charge it ──────
     let squarePaymentId: string;
+    let squareCustomerId: string | undefined;
+    let squareCardId: string | undefined;
+
     try {
-      const result = await getSquareClient().paymentsApi.createPayment({
-        sourceId,
+      const client = getSquareClient();
+
+      // Fetch PM user doc for display name / email.
+      const userSnap = await db.collection("users").doc(pmId).get();
+      const userData = userSnap.data();
+
+      // Create or locate a Square Customer for this PM.
+      const customerResult = await client.customersApi.createCustomer({
+        idempotencyKey: `customer-${pmId}`,
+        emailAddress: userData?.email,
+        givenName: userData?.displayName ?? propertyName,
+        referenceId: pmId,
+      });
+      squareCustomerId = customerResult.result.customer?.id;
+
+      // Save the card on file under that customer.
+      if (squareCustomerId) {
+        try {
+          const cardResult = await client.cardsApi.createCard({
+            idempotencyKey: `card-${pmId}-${now}`,
+            sourceId,
+            card: { customerId: squareCustomerId },
+          });
+          squareCardId = cardResult.result.card?.id;
+        } catch {
+          // Card save failing is non-fatal — we still charge via the nonce.
+        }
+      }
+
+      // Charge using the saved card if available, otherwise fall back to nonce.
+      const chargeSourceId = squareCardId ?? sourceId;
+      const result = await client.paymentsApi.createPayment({
+        sourceId: chargeSourceId,
         idempotencyKey: randomUUID(),
         amountMoney: toMoneyCents(feeUsd),
         locationId: getSquareLocationId(),
+        customerId: squareCustomerId,
         note: `ResiGrid ${TIER_NAMES[tier]} annual onboarding — ${propertyName}`,
       });
       const id = result.result.payment?.id;
@@ -129,6 +164,8 @@ export const createPMSubscription = onCall<
         entitlements: [...(data.entitlements ?? []), entitlement],
         totalPaid: (data.totalPaid ?? 0) + feeUsd,
         updatedAt: now,
+        ...(squareCustomerId ? { squareCustomerId } : {}),
+        ...(squareCardId ? { squareCardId } : {}),
       });
     } else {
       const sub: PMSubscriptionDoc = {
@@ -139,6 +176,8 @@ export const createPMSubscription = onCall<
         entitlements: [entitlement],
         totalPaid: feeUsd,
         updatedAt: now,
+        squareCustomerId,
+        squareCardId,
       };
       await subRef.set(sub);
     }

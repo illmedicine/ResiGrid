@@ -321,15 +321,14 @@ export interface PMEntitlement {
 export interface PMSubscriptionDoc {
   uid: string;
   active: boolean;
-  /** Current pricing tier (starter / growth / mega). */
   tier?: PMTier;
-  /** Unix ms when the annual tier subscription expires. */
   tierExpiresAt?: number;
   entitlements: PMEntitlement[];
   totalPaid: number;
   updatedAt: number;
-  /** voucherId that activated this PM for free via the payment invite flow. */
   invitedVia?: string;
+  squareCustomerId?: string;
+  squareCardId?: string;
 }
 
 export type UtilityResponsibility = "tenant" | "landlord" | "split" | "na";

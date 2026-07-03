@@ -1,162 +1,202 @@
-rules_version = '2';
+﻿rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
+    function isSignedIn() { return request.auth != null; }
+    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isTeamMemberFor(ownerUid) {
+      return isSignedIn() && myUserDoc().get('teamAdminId', null) == ownerUid;
+    }
+    function canAccessProperty(propOwnerId, propId) {
+      return isSignedIn() && (
+        request.auth.uid == propOwnerId ||
+        (myUserDoc().get('teamAdminId', null) == propOwnerId &&
+         myUserDoc().get('teamPropertyIds', []).hasAny([propId]))
+      );
     }
 
-    function isSelf(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // --- Users ---
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isSelf(uid);
-      allow update: if isSelf(uid) && request.resource.data.role == resource.data.role;
+      allow update: if isSelf(uid) && (
+        request.resource.data.role == resource.data.role ||
+        (request.resource.data.get('teamAdminId', null) != null &&
+         request.resource.data.role == 'property_manager')
+      );
       allow delete: if false;
     }
 
-    // --- Property managers ---
     match /propertyManagers/{uid} {
       allow read: if isSignedIn();
       allow write: if isSelf(uid);
     }
 
-    // --- Properties ---
-    // Any signed-in user can read (tenants need to read their own property details/photos).
-    // Only the owner can mutate.
     match /properties/{propertyId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.ownerId)
+      );
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        canAccessProperty(resource.data.ownerId, propertyId)
+      );
       allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
-    // --- Units ---
     match /units/{unitId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.propertyId != null;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if isSignedIn();
     }
 
-    // --- Listings ---
-    // Published listings are public. Any signed-in user can read all listings
-    // (tenants need to read their unit's listing even when status is "filled").
     match /listings/{listingId} {
       allow read: if resource.data.status == 'published' || isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.ownerId)
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        isTeamMemberFor(resource.data.ownerId)
+      );
     }
 
-    // --- Applications ---
-    // Tenant reads own; PM reads/updates via pmId or listing ownership.
-    // PM can create (shortlist/invite); tenant updates with docs/answers.
     match /applications/{applicationId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid ||
-         get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId) ||
+        get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid
+      );
       allow create: if isSignedIn() && (
         request.resource.data.tenantId == request.auth.uid ||
-        request.resource.data.pmId == request.auth.uid
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
       );
-      allow update: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid ||
-         get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId) ||
+        get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid
+      );
       allow delete: if false;
     }
 
-    // --- Tenant interests (express interest / schedule visit) ---
     match /tenantInterests/{interestId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
-      allow update: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow delete: if false;
     }
 
-    // --- Application forms (PM-created custom forms) ---
     match /applicationForms/{formId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
+      allow create: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
-    // --- Leases ---
     match /leases/{leaseId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid || resource.data.pmId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
-      allow update: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid || resource.data.pmId == request.auth.uid);
-      allow delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
-    // --- Payments (written only by Cloud Functions via admin SDK) ---
     match /payments/{paymentId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow write: if false;
     }
 
-    // --- Vouchers (written only by Cloud Functions via admin SDK) ---
     match /vouchers/{voucherId} {
-      allow read: if isSignedIn() &&
-        (resource.data.senderId == request.auth.uid || resource.data.recipientUserId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientUserId == request.auth.uid
+      );
       allow write: if false;
     }
 
-    // --- Reputation scores ---
-    // Cloud Functions handle payment-based scoring. Tenants can write to their
-    // own doc to bootstrap the resident badge when first loading the dashboard.
     match /reputationScores/{tenantId} {
       allow read: if isSignedIn();
       allow write: if isSelf(tenantId);
     }
 
-    // --- Maintenance requests ---
-    // Tenant reads/creates own; PM reads/updates for their properties
     match /maintenanceRequests/{requestId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid ||
+        canAccessProperty(
+          get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId,
+          resource.data.propertyId
+        )
+      );
       allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
-      allow update: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid ||
+        canAccessProperty(
+          get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId,
+          resource.data.propertyId
+        )
+      );
       allow delete: if false;
-
-      // DM thread — one message subcollection per request, readable/writable by tenant and PM only
       match /messages/{messageId} {
         allow read: if isSignedIn() && (
           get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.tenantId == request.auth.uid ||
-          get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid
+          get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid ||
+          isTeamMemberFor(get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId)
         );
         allow create: if isSignedIn() &&
           request.resource.data.senderId == request.auth.uid && (
             get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.tenantId == request.auth.uid ||
-            get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid
+            get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid ||
+            isTeamMemberFor(get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId)
           );
         allow update, delete: if false;
       }
     }
 
-    // --- Message threads ---
     match /messageThreads/{threadId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.participantIds;
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participantIds;
       allow update: if isSignedIn() && request.auth.uid in resource.data.participantIds;
       allow delete: if false;
-
       match /messages/{messageId} {
         allow read, create: if isSignedIn() &&
           request.auth.uid in get(/databases/$(database)/documents/messageThreads/$(threadId)).data.participantIds;
@@ -164,80 +204,103 @@ service cloud.firestore {
       }
     }
 
-    // --- Platform stats (easter egg login counter — publicly readable) ---
+    match /pmTeamInvites/{inviteId} {
+      allow read: if isSignedIn() && (
+        resource.data.adminId == request.auth.uid ||
+        resource.data.email == request.auth.token.email ||
+        resource.data.memberId == request.auth.uid
+      );
+      allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.adminId == request.auth.uid ||
+        resource.data.email == request.auth.token.email
+      );
+      allow delete: if false;
+    }
+
     match /platformStats/{docId} {
       allow read: if true;
       allow write: if isSignedIn();
     }
+    match /uniqueLogins/{uid} { allow read, write: if isSelf(uid); }
+    match /nationalListings/{listingId} { allow read: if true; allow write: if false; }
+    match /systemConfig/{docId} { allow read: if true; allow write: if false; }
+    match /squareConnections/{uid} { allow read, write: if false; }
 
-    // --- Unique login registry (one doc per uid, written by that user only) ---
-    match /uniqueLogins/{uid} {
-      allow read, write: if isSelf(uid);
-    }
-
-    // --- National listings (RentCast cache — publicly readable, admin-write only) ---
-    match /nationalListings/{listingId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // --- System config (seed timestamps etc — publicly readable, admin-write only) ---
-    match /systemConfig/{docId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // --- Square OAuth connections (server-only; Cloud Functions via admin SDK) ---
-    match /squareConnections/{uid} {
-      allow read, write: if false;
-    }
-
-    // --- PM Subscriptions (write by Cloud Functions only; read by owner) ---
     match /pmSubscriptions/{uid} {
-      allow read: if isSelf(uid);
+      allow read: if isSelf(uid) || isTeamMemberFor(uid);
       allow write: if false;
     }
 
-    // --- Notices ---
     match /notices/{noticeId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
+      allow create, update: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
-    // --- Lease terms (full detailed lease documents) ---
     match /leaseTerms/{leaseId} {
-      allow read: if isSignedIn() &&
-        (resource.data.pmId == request.auth.uid || resource.data.tenantId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
-      allow update: if isSignedIn() &&
-        (resource.data.pmId == request.auth.uid || resource.data.tenantId == request.auth.uid);
-      allow delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        resource.data.tenantId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        resource.data.tenantId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
-    // --- Lease templates (reusable by PM) ---
     match /leaseTemplates/{templateId} {
-      allow read: if isSignedIn() && resource.data.pmId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.pmId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.pmId == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update, delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
-    // --- Payment reviews (thumbs up/down per payment) ---
     match /paymentReviews/{paymentId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
-      allow update: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow delete: if false;
     }
 
-    // --- Shared documents (PM + tenant can upload/read) ---
     match /sharedDocuments/{docId} {
-      allow read: if isSignedIn() &&
-        (resource.data.tenantId == request.auth.uid ||
-         resource.data.pmId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow create: if isSignedIn() && request.resource.data.uploaderId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
       allow update: if false;

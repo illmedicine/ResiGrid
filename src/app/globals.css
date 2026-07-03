@@ -102,3 +102,15 @@ input, textarea, select {
   0%, 100% { transform: translateY(0px); }
   50%       { transform: translateY(-5px); }
 }
+
+/* Flip counter digit animation */
+@keyframes flip-digit {
+  0%   { transform: rotateX(0deg);   opacity: 1; }
+  45%  { transform: rotateX(90deg);  opacity: 0; }
+  55%  { transform: rotateX(-90deg); opacity: 0; }
+  100% { transform: rotateX(0deg);   opacity: 1; }
+}
+.animate-flip-digit {
+  animation: flip-digit 0.45s ease-in-out;
+  transform-origin: center;
+}

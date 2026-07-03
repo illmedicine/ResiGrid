@@ -150,6 +150,17 @@ service cloud.firestore {
       }
     }
 
+    // --- Platform stats (easter egg login counter — publicly readable) ---
+    match /platformStats/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // --- Unique login registry (one doc per uid, written by that user only) ---
+    match /uniqueLogins/{uid} {
+      allow read, write: if isSelf(uid);
+    }
+
     // --- Square OAuth connections (server-only; Cloud Functions via admin SDK) ---
     match /squareConnections/{uid} {
       allow read, write: if false;

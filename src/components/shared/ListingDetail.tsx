@@ -6,7 +6,6 @@ import { Bath, BedDouble, CalendarCheck, Heart, MapPin, Star } from "lucide-reac
 import { db } from "@/lib/firebase/config";
 import { applicationsCol, tenantInterestsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
-import { DEMO_LISTINGS } from "@/lib/listings/demoListings";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -28,26 +27,19 @@ export function ListingDetail({ listingId }: { listingId: string }) {
   const [visitNote, setVisitNote] = useState("");
   const [activePhoto, setActivePhoto] = useState(0);
 
-  const isDemo = listingId.startsWith("demo-");
   const isTenant = userDoc?.role === "tenant";
 
   useEffect(() => {
-    if (isDemo) {
-      const found = DEMO_LISTINGS.find((l) => l.id === listingId);
-      setListing(found ?? null);
-      setLoading(false);
-      return;
-    }
     const unsub = onSnapshot(doc(db, "listings", listingId), (snap) => {
       setListing(snap.exists() ? ({ ...snap.data(), id: snap.id } as ListingDoc) : null);
       setLoading(false);
     });
     return unsub;
-  }, [listingId, isDemo]);
+  }, [listingId]);
 
   // Watch tenant's own application for this listing
   useEffect(() => {
-    if (!user || !isTenant || isDemo) return;
+    if (!user || !isTenant) return;
     const q = query(
       applicationsCol(),
       where("tenantId", "==", user.uid),
@@ -58,11 +50,11 @@ export function ListingDetail({ listingId }: { listingId: string }) {
       setMyApplication(apps[0] ?? null);
     });
     return unsub;
-  }, [user, isTenant, listingId, isDemo]);
+  }, [user, isTenant, listingId]);
 
   // Watch tenant's own interest doc for this listing
   useEffect(() => {
-    if (!user || !isTenant || isDemo) return;
+    if (!user || !isTenant) return;
     const q = query(
       tenantInterestsCol(),
       where("tenantId", "==", user.uid),
@@ -73,7 +65,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
       setMyInterest(docs[0] ?? null);
     });
     return unsub;
-  }, [user, isTenant, listingId, isDemo]);
+  }, [user, isTenant, listingId]);
 
   async function handleExpressInterest() {
     if (!user || !listing || !listing.ownerId) return;
@@ -205,7 +197,6 @@ export function ListingDetail({ listingId }: { listingId: string }) {
               <Star className="h-3 w-3 inline mr-0.5" />Featured
             </Badge>
           )}
-          {isDemo && <Badge tone="neutral">Sample listing</Badge>}
         </div>
       </div>
 
@@ -251,27 +242,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {/* CTAs */}
-      {isDemo ? (
-        <Card className="border-orange-200 bg-orange-50 p-5">
-          <CardContent className="flex flex-col gap-3 p-0">
-            <p className="text-sm font-semibold text-navy-900">
-              This is a sample listing showing what ResiGrid looks like.
-            </p>
-            <p className="text-xs text-neutral-600">
-              Real listings let you apply with your RGE Trust Profile — no paper applications,
-              no fax, no credit bureau pull required.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Button href="/login?role=tenant" size="sm">
-                Create your RGE profile
-              </Button>
-              <Button href="/login?role=property_manager" variant="outline" size="sm">
-                List your property
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : !user ? (
+      {!user ? (
         <Card className="p-5 border-orange-100 bg-orange-50">
           <CardContent className="flex flex-col gap-3 p-0">
             <p className="text-sm font-semibold text-navy-900">Interested in this listing?</p>

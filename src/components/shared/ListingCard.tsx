@@ -11,7 +11,6 @@ export function ListingCard({
   listing: ListingDoc;
   href: string;
 }) {
-  const isDemo = (listing as ListingDoc & { source?: string }).source === "demo";
   const isHud  = (listing as ListingDoc & { source?: string }).source === "hud_lihtc";
   const photo  = listing.photos[0] ?? null;
 
@@ -43,11 +42,6 @@ export function ListingCard({
                 <Star className="h-2.5 w-2.5" /> Featured
               </span>
             )}
-            {isDemo && (
-              <span className="rounded-full bg-navy-900/75 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                Sample
-              </span>
-            )}
             {isHud && (
               <span className="flex items-center gap-0.5 rounded-full bg-navy-900/80 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                 <Building2 className="h-2.5 w-2.5" /> Community
@@ -77,11 +71,6 @@ export function ListingCard({
               <Bath className="h-3.5 w-3.5" /> {listing.baths} ba
             </span>
           </div>
-          {isDemo && (
-            <p className="text-[10px] text-neutral-400">
-              Sample listing · Apply to see real availability
-            </p>
-          )}
         </CardContent>
       </Card>
     </Link>

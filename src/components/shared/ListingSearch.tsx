@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { Search, Globe } from "lucide-react";
 import { listingsCol, nationalListingsCol } from "@/lib/firebase/firestore";
-import { DEMO_LISTINGS, filterDemoListings } from "@/lib/listings/demoListings";
 import { Input } from "@/components/ui/Input";
 import { ListingCard } from "@/components/shared/ListingCard";
 import { NationalListingCard } from "@/components/shared/NationalListingCard";
@@ -32,11 +31,7 @@ export function ListingSearch() {
 
   // National listings cached from RentCast (publicly readable, no auth required)
   useEffect(() => {
-    const q = query(
-      nationalListingsCol(),
-      orderBy("syncedAt", "desc"),
-      limit(200),
-    );
+    const q = query(nationalListingsCol(), orderBy("syncedAt", "desc"), limit(200));
     return onSnapshot(
       q,
       (snap) => {
@@ -47,10 +42,9 @@ export function ListingSearch() {
     );
   }, []);
 
-  const { resiResults, demoResults, nationalResults } = useMemo(() => {
+  const { resiResults, nationalResults } = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    // ResiGrid listings — featured first
     const resiResults = (
       term
         ? resiListings.filter((l) =>
@@ -59,10 +53,6 @@ export function ListingSearch() {
         : resiListings
     ).sort((a, b) => Number(b.featured) - Number(a.featured));
 
-    // Demo listings
-    const demoResults = filterDemoListings(search);
-
-    // National listings — filter by address/city/state/zip
     const nationalResults = term
       ? nationalListings.filter((l) =>
           [l.formattedAddress, l.city, l.state, l.zipCode, l.addressLine1]
@@ -72,11 +62,11 @@ export function ListingSearch() {
         )
       : nationalListings;
 
-    return { resiResults, demoResults, nationalResults };
+    return { resiResults, nationalResults };
   }, [resiListings, nationalListings, search]);
 
   const isLoading = loading || nationalLoading;
-  const hasResi = resiResults.length > 0 || demoResults.length > 0;
+  const hasResi = resiResults.length > 0;
   const hasNational = nationalResults.length > 0;
 
   return (
@@ -94,7 +84,18 @@ export function ListingSearch() {
       {isLoading ? (
         <p className="text-sm text-neutral-600">Loading listings…</p>
       ) : !hasResi && !hasNational ? (
-        <p className="text-sm text-neutral-600">No listings match your search.</p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <p className="text-sm text-neutral-600">No listings found{search ? ` for "${search}"` : ""}.</p>
+          {!search && (
+            <p className="text-xs text-neutral-400">
+              Nationwide listings update every 20 hours. Check back soon, or{" "}
+              <a href="/login?role=property_manager" className="text-orange-500 hover:underline">
+                list your property
+              </a>{" "}
+              on ResiGrid.
+            </p>
+          )}
+        </div>
       ) : (
         <>
           {/* ── ResiGrid listings ── */}
@@ -103,30 +104,15 @@ export function ListingSearch() {
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-navy-900">
                   ResiGrid Properties
-                  {resiResults.length > 0 && (
-                    <span className="ml-1.5 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-600">
-                      {resiResults.length} live
-                    </span>
-                  )}
+                  <span className="ml-1.5 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-600">
+                    {resiResults.length} live
+                  </span>
                 </h2>
-                <p className="text-[11px] text-neutral-500">
-                  Apply directly through the platform
-                </p>
+                <p className="text-[11px] text-neutral-500">Apply directly through the platform</p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {resiResults.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    href={`/listings/view/?id=${listing.id}`}
-                  />
-                ))}
-                {demoResults.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    href={`/listings/view/?id=${listing.id}`}
-                  />
+                  <ListingCard key={listing.id} listing={listing} href={`/listings/view/?id=${listing.id}`} />
                 ))}
               </div>
             </section>
@@ -137,9 +123,7 @@ export function ListingSearch() {
             <section className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Globe className="h-4 w-4 text-sky-700" />
-                <h2 className="text-sm font-semibold text-navy-900">
-                  Nationwide Listings
-                </h2>
+                <h2 className="text-sm font-semibold text-navy-900">Nationwide Listings</h2>
                 <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
                   {nationalResults.length.toLocaleString()} available
                 </span>
@@ -170,11 +154,7 @@ export function ListingSearch() {
                 to reach verified RGE tenants.{" "}
               </span>
             )}
-            {nationalResults.length > 0 && (
-              <span className="text-neutral-400">
-                Nationwide data from RentCast.
-              </span>
-            )}
+            {hasNational && <span className="text-neutral-400">Nationwide data from RentCast.</span>}
           </p>
         </>
       )}

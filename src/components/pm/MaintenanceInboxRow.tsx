@@ -200,7 +200,16 @@ export function MaintenanceInboxRow({ request }: { request: MaintenanceRequestDo
             {/* Tenant note */}
             {request.tenantNotes && (
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                <p className="mb-0.5 text-xs font-medium text-blue-700">Tenant note</p>
+                <div className="mb-0.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-blue-700">Tenant note</p>
+                  {request.tenantNotesUpdatedAt && (
+                    <p className="text-[10px] text-blue-500">
+                      {new Date(request.tenantNotesUpdatedAt).toLocaleString(undefined, {
+                        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+                </div>
                 <p className="text-xs text-blue-800 whitespace-pre-wrap">{request.tenantNotes}</p>
               </div>
             )}

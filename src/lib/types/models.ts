@@ -240,6 +240,7 @@ export interface MaintenanceRequestDoc {
   status: MaintenanceStatus;
   priority: MaintenancePriority;
   tenantNotes?: string;
+  tenantNotesUpdatedAt?: number;
   pmNotes?: string;
   createdAt: number;
 }

@@ -29,22 +29,28 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
   const [expanded, setExpanded] = useState(false);
   const [tenantNotes, setTenantNotes] = useState(req.tenantNotes ?? "");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(req.tenantNotesUpdatedAt ?? null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Keep local state in sync when Firestore pushes an update to this request.
   useEffect(() => {
-    if (!saving) setTenantNotes(req.tenantNotes ?? "");
+    if (!saving) {
+      setTenantNotes(req.tenantNotes ?? "");
+      if (req.tenantNotesUpdatedAt) setSavedAt(req.tenantNotesUpdatedAt);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [req.tenantNotes]);
+  }, [req.tenantNotes, req.tenantNotesUpdatedAt]);
 
   async function handleSaveNotes() {
     setSaving(true);
     setSaveError(null);
+    const now = Date.now();
     try {
-      await updateDoc(doc(db, "maintenanceRequests", req.id), { tenantNotes });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      await updateDoc(doc(db, "maintenanceRequests", req.id), {
+        tenantNotes,
+        tenantNotesUpdatedAt: now,
+      });
+      setSavedAt(now);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save note");
     } finally {
@@ -98,14 +104,21 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
                 <p className="mb-1 text-xs font-medium text-neutral-700">Your notes (visible to property manager)</p>
                 <textarea
                   value={tenantNotes}
-                  onChange={(e) => { setTenantNotes(e.target.value); setSaved(false); }}
+                  onChange={(e) => setTenantNotes(e.target.value)}
                   rows={3}
                   placeholder="Add any notes or updates…"
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                 />
-                <Button size="sm" variant="outline" className="mt-1.5" onClick={handleSaveNotes} disabled={saving}>
-                  {saved ? "Saved!" : saving ? "Saving…" : "Save note"}
-                </Button>
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={handleSaveNotes} disabled={saving || !tenantNotes.trim()}>
+                    {saving ? "Saving…" : "Save note"}
+                  </Button>
+                  {savedAt && (
+                    <span className="text-[10px] text-green-600">
+                      Saved {new Date(savedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </span>
+                  )}
+                </div>
                 {saveError && <p className="mt-1 text-xs text-red-600">{saveError}</p>}
               </div>
             )}

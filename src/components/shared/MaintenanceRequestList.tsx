@@ -82,13 +82,16 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
         {expanded && (
           <div className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
             {req.photoUrls?.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {req.photoUrls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Photo ${i + 1}`} className="aspect-square w-full rounded-lg object-cover" />
-                  </a>
-                ))}
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-neutral-500">Photos</p>
+                <div className="flex flex-wrap gap-2">
+                  {req.photoUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Photo ${i + 1}`} className="h-24 w-24 rounded-lg object-cover ring-1 ring-neutral-200 hover:ring-orange-400 transition" />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 

@@ -26,11 +26,12 @@ service cloud.firestore {
     }
 
     // --- Properties ---
+    // Any signed-in user can read (tenants need to read their own property details/photos).
+    // Only the owner can mutate.
     match /properties/{propertyId} {
-      allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
@@ -42,10 +43,11 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
-    // --- Listings (public read when published) ---
+    // --- Listings ---
+    // Published listings are public. Any signed-in user can read all listings
+    // (tenants need to read their unit's listing even when status is "filled").
     match /listings/{listingId} {
-      allow read: if resource.data.status == 'published' ||
-        (isSignedIn() && resource.data.ownerId == request.auth.uid);
+      allow read: if resource.data.status == 'published' || isSignedIn();
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
@@ -113,10 +115,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // --- Reputation scores (written only by Cloud Functions via admin SDK) ---
+    // --- Reputation scores ---
+    // Cloud Functions handle payment-based scoring. Tenants can write to their
+    // own doc to bootstrap the resident badge when first loading the dashboard.
     match /reputationScores/{tenantId} {
       allow read: if isSignedIn();
-      allow write: if false;
+      allow write: if isSelf(tenantId);
     }
 
     // --- Maintenance requests ---

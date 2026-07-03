@@ -5,15 +5,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addDoc, arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { Camera, Edit2, Trash2, UserMinus } from "lucide-react";
+import { Camera, Edit2, ExternalLink, Trash2, UserMinus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { leasesCol, listingsCol } from "@/lib/firebase/firestore";
+import { leasesCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhotoUpload } from "@/components/pm/PhotoUpload";
-import type { PropertyDoc, UnitDoc } from "@/lib/types/models";
+import type { ListingDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
 
 const leaseSchema = z.object({
   tenantId: z.string().min(1, "Tenant UID is required"),
@@ -34,9 +34,12 @@ const editSchema = z.object({
 type EditInput = z.input<typeof editSchema>;
 type EditValues = z.output<typeof editSchema>;
 
-export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyDoc }) {
+export function UnitRow({ unit, property, activeListing }: {
+  unit: UnitDoc;
+  property: PropertyDoc;
+  activeListing?: ListingDoc;
+}) {
   const [mode, setMode] = useState<"none" | "assign" | "edit">("none");
-  const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removingTenant, setRemovingTenant] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -49,35 +52,6 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
     resolver: zodResolver(editSchema),
     defaultValues: { unitNumber: unit.unitNumber, beds: unit.beds, baths: unit.baths, rent: unit.rent, sqft: unit.sqft },
   });
-
-  async function handlePublish() {
-    setPublishing(true);
-    setError(null);
-    try {
-      await addDoc(listingsCol(), {
-        id: "",
-        unitId: unit.id,
-        propertyId: property.id,
-        ownerId: property.ownerId,
-        title: `${property.name} — Unit ${unit.unitNumber}`,
-        description: `${unit.beds} bed / ${unit.baths} bath unit at ${property.name}.`,
-        rent: unit.rent,
-        beds: unit.beds,
-        baths: unit.baths,
-        photos: unit.photos?.length ? unit.photos : property.photos,
-        city: property.city,
-        state: property.state,
-        zip: property.zip,
-        featured: true,
-        status: "published",
-        createdAt: Date.now(),
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to publish listing");
-    } finally {
-      setPublishing(false);
-    }
-  }
 
   async function onAssign(values: LeaseFormValues) {
     setError(null);
@@ -252,9 +226,16 @@ export function UnitRow({ unit, property }: { unit: UnitDoc; property: PropertyD
           <div className="flex flex-wrap gap-2">
             {unit.status === "vacant" && (
               <>
-                <Button size="sm" href={`/pm/listings/new?unitId=${unit.id}&propertyId=${property.id}`} disabled={publishing}>
-                  Publish listing
-                </Button>
+                {activeListing ? (
+                  <Button size="sm" variant="outline" href="/pm/listings">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Manage listing
+                  </Button>
+                ) : (
+                  <Button size="sm" href={`/pm/listings/new?unitId=${unit.id}&propertyId=${property.id}`}>
+                    Publish listing
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" onClick={() => setMode("assign")}>Assign tenant</Button>
               </>
             )}

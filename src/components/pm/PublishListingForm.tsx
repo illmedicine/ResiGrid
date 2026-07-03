@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,7 +42,9 @@ type FormValues = z.output<typeof schema>;
 export function PublishListingForm({ unitId, propertyId }: { unitId: string; propertyId: string }) {
   const router = useRouter();
   const { user } = useAuth();
-  const listingId = useId().replace(/:/g, "-");
+  // Generate a stable random Firestore doc ref once per mount — avoids the
+  // deterministic useId() bug where every listing overwrote doc "r0".
+  const listingRef = useMemo(() => doc(listingsCol()), []);
   const [unit, setUnit] = useState<UnitDoc | null>(null);
   const [property, setProperty] = useState<PropertyDoc | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -120,9 +122,8 @@ export function PublishListingForm({ unitId, propertyId }: { unitId: string; pro
     setError(null);
     setSubmitting(true);
     try {
-      const ref = doc(listingsCol(), listingId.replace(/-/g, "").slice(0, 20));
-      await setDoc(ref, {
-        id: ref.id,
+      await setDoc(listingRef, {
+        id: listingRef.id,
         unitId,
         propertyId,
         ownerId: user.uid,
@@ -209,7 +210,7 @@ export function PublishListingForm({ unitId, propertyId }: { unitId: string; pro
           Supported: JPG, PNG, WEBP — max 10 photos.
         </p>
         <PhotoUpload
-          storagePath={`resigrid/listings/${listingId}`}
+          storagePath={`resigrid/listings/${listingRef.id}`}
           uploadedUrls={photos}
           onChange={setPhotos}
         />

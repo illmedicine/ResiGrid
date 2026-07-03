@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { Camera, Plus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
+import { listingsCol } from "@/lib/firebase/firestore";
 import { useUnitsForProperty } from "@/lib/hooks/useUnitsForProperty";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AddUnitForm } from "@/components/pm/AddUnitForm";
 import { UnitRow } from "@/components/pm/UnitRow";
 import { PhotoUpload } from "@/components/pm/PhotoUpload";
-import type { PropertyDoc } from "@/lib/types/models";
+import type { ListingDoc, PropertyDoc } from "@/lib/types/models";
 
 export function PropertyDetail({ propertyId }: { propertyId: string }) {
   const [property, setProperty] = useState<PropertyDoc | null>(null);
@@ -19,6 +20,7 @@ export function PropertyDetail({ propertyId }: { propertyId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [savingPhotos, setSavingPhotos] = useState(false);
+  const [propertyListings, setPropertyListings] = useState<ListingDoc[]>([]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "properties", propertyId), (snap) => {
@@ -28,6 +30,17 @@ export function PropertyDetail({ propertyId }: { propertyId: string }) {
       setLoading(false);
     });
     return unsub;
+  }, [propertyId]);
+
+  useEffect(() => {
+    const q = query(listingsCol(), where("propertyId", "==", propertyId));
+    return onSnapshot(q, (snap) => {
+      setPropertyListings(
+        snap.docs
+          .map((d) => d.data())
+          .filter((l) => l.status === "published" || l.status === "draft"),
+      );
+    });
   }, [propertyId]);
 
   async function handleSavePhotos(urls: string[]) {
@@ -74,12 +87,22 @@ export function PropertyDetail({ propertyId }: { propertyId: string }) {
       </Card>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-navy-900">Units</h2>
-        <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+        <h2 className="text-sm font-semibold text-navy-900">
+          Units
+          <span className="ml-2 text-xs font-normal text-neutral-500">
+            {units.length} / 20
+          </span>
+        </h2>
+        <Button size="sm" onClick={() => setShowForm((v) => !v)} disabled={units.length >= 20}>
           <Plus className="h-4 w-4" />
           Add unit
         </Button>
       </div>
+      {units.length >= 20 && (
+        <p className="text-xs text-amber-600">
+          20-unit limit reached. Contact support to expand your property.
+        </p>
+      )}
 
       {showForm && (
         <Card className="p-5">
@@ -102,9 +125,10 @@ export function PropertyDetail({ propertyId }: { propertyId: string }) {
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
-          {units.map((unit) => (
-            <UnitRow key={unit.id} unit={unit} property={property} />
-          ))}
+          {units.map((unit) => {
+            const activeListing = propertyListings.find((l) => l.unitId === unit.id);
+            return <UnitRow key={unit.id} unit={unit} property={property} activeListing={activeListing} />;
+          })}
         </div>
       )}
     </div>

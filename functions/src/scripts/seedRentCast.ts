@@ -29,7 +29,7 @@ const FS_HOST     = "firestore.googleapis.com";
 const FS_BASE     = `/v1/${DB_ROOT}`;
 
 const FIREBASE_CLI_CLIENT_ID     = "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com";
-const FIREBASE_CLI_CLIENT_SECRET = "j9iVZfS8ggExJQFRaL5-zn";
+const FIREBASE_CLI_CLIENT_SECRET = "j9iVZfS8kkCEFUPaAeJV0sAi";
 
 const TWENTY_HOURS_MS = 20 * 60 * 60 * 1000;
 const BATCH_SIZE      = 450; // Firestore REST commit limit is 500

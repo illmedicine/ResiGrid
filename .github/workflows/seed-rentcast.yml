@@ -10,7 +10,7 @@ on:
       force:
         description: 'Skip 20-hour cooldown and seed immediately'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 jobs:
@@ -33,11 +33,6 @@ jobs:
         run: npx tsc
         working-directory: functions
 
-      - name: Write service account key
-        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/sa.json
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-
       - name: Run seeder
         run: |
           FORCE_FLAG=""
@@ -48,4 +43,4 @@ jobs:
         working-directory: functions
         env:
           RENTCAST_API_KEY: ${{ secrets.RENTCAST_API_KEY }}
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

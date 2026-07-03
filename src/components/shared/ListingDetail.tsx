@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { addDoc, doc, onSnapshot, query, where } from "firebase/firestore";
-import { Bath, BedDouble, CalendarCheck, Heart, MapPin, Star } from "lucide-react";
-import { db } from "@/lib/firebase/config";
+import { useEffect, useRef, useState } from "react";
+import { addDoc, doc, getDoc, onSnapshot, query, setDoc, where } from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
+import {
+  Bath,
+  BedDouble,
+  CalendarCheck,
+  ChevronLeft,
+  FileUp,
+  Heart,
+  Loader2,
+  MapPin,
+  Star,
+  Trash2,
+} from "lucide-react";
+import { db, storage } from "@/lib/firebase/config";
 import { applicationsCol, tenantInterestsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Textarea } from "@/components/ui/Textarea";
 import { Input } from "@/components/ui/Input";
-import type { ApplicationDoc, ListingDoc, TenantInterestDoc } from "@/lib/types/models";
+import { Textarea } from "@/components/ui/Textarea";
+import type { ApplicationDoc, ApplicationFormDoc, ListingDoc, TenantInterestDoc } from "@/lib/types/models";
 
 export function ListingDetail({ listingId }: { listingId: string }) {
   const { user, userDoc } = useAuth();
@@ -26,6 +42,22 @@ export function ListingDetail({ listingId }: { listingId: string }) {
   const [visitDate, setVisitDate] = useState("");
   const [visitNote, setVisitNote] = useState("");
   const [activePhoto, setActivePhoto] = useState(0);
+
+  // Application form state
+  const [applyMode, setApplyMode] = useState(false);
+  const [appForm, setAppForm] = useState<ApplicationFormDoc | null>(null);
+  const [appFormLoading, setAppFormLoading] = useState(false);
+  const [monthlyIncome, setMonthlyIncome] = useState("");
+  const [employer, setEmployer] = useState("");
+  const [emergencyName, setEmergencyName] = useState("");
+  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [moveInDate, setMoveInDate] = useState("");
+  const [appMessage, setAppMessage] = useState("");
+  const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
+  const [pendingAppId] = useState(() => doc(applicationsCol()).id);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const isTenant = userDoc?.role === "tenant";
 
@@ -66,6 +98,16 @@ export function ListingDetail({ listingId }: { listingId: string }) {
     });
     return unsub;
   }, [user, isTenant, listingId]);
+
+  // Load the PM's application form when entering apply mode
+  useEffect(() => {
+    if (!applyMode || !listing?.applicationFormId) return;
+    setAppFormLoading(true);
+    getDoc(doc(db, "applicationForms", listing.applicationFormId)).then((snap) => {
+      setAppForm(snap.exists() ? (snap.data() as ApplicationFormDoc) : null);
+      setAppFormLoading(false);
+    }).catch(() => setAppFormLoading(false));
+  }, [applyMode, listing?.applicationFormId]);
 
   async function handleExpressInterest() {
     if (!user || !listing || !listing.ownerId) return;
@@ -116,22 +158,54 @@ export function ListingDetail({ listingId }: { listingId: string }) {
     }
   }
 
-  async function handleApply() {
+  async function handleFileUpload(files: FileList) {
+    if (!user) return;
+    const accepted = Array.from(files).slice(0, 10 - uploadedDocs.length);
+    if (!accepted.length) return;
+    setUploadingCount((c) => c + accepted.length);
+    const newUrls: string[] = [];
+    for (const file of accepted) {
+      const path = `resigrid/applications/${user.uid}/${pendingAppId}/${Date.now()}-${file.name}`;
+      try {
+        const sRef = storageRef(storage, path);
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+        newUrls.push(url);
+      } catch {
+        // skip failed uploads silently
+      } finally {
+        setUploadingCount((c) => c - 1);
+      }
+    }
+    setUploadedDocs((prev) => [...prev, ...newUrls]);
+  }
+
+  async function handleSubmitApplication() {
     if (!user || !listing) return;
     setWorking(true);
     setError(null);
     try {
-      await addDoc(applicationsCol(), {
-        id: "",
+      const appRef = doc(db, "applications", pendingAppId);
+      await setDoc(appRef, {
+        id: pendingAppId,
         tenantId: user.uid,
         listingId: listing.id,
+        unitId: listing.unitId,
         pmId: listing.ownerId,
         status: "submitted",
         submittedAt: Date.now(),
-        ...(listing.applicationFormId ? { applicationFormId: listing.applicationFormId } : {}),
+        ...(listing.applicationFormId && { applicationFormId: listing.applicationFormId }),
+        ...(monthlyIncome && { monthlyIncome: Number(monthlyIncome) }),
+        ...(employer && { employer }),
+        ...(emergencyName && { emergencyContactName: emergencyName }),
+        ...(emergencyPhone && { emergencyContactPhone: emergencyPhone }),
+        ...(moveInDate && { moveInDate: new Date(moveInDate).getTime() }),
+        ...(appMessage && { message: appMessage }),
+        ...(uploadedDocs.length > 0 && { documentUrls: uploadedDocs }),
+        ...(Object.keys(customAnswers).length > 0 && { customAnswers }),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to apply");
+      setError(err instanceof Error ? err.message : "Failed to submit application");
     } finally {
       setWorking(false);
     }
@@ -143,6 +217,14 @@ export function ListingDetail({ listingId }: { listingId: string }) {
   const bedsLabel = listing.beds === 0 ? "Studio" : `${listing.beds} bed`;
   const isInvited = myApplication?.status === "invited";
   const hasSubmitted = myApplication && !["invited", "shortlisted"].includes(myApplication.status);
+
+  // Document requirement labels for the upload section
+  const docRequirements = appForm ? [
+    appForm.requirePaystubs && "Paystubs",
+    appForm.requireBankStatements && "Bank statements",
+    appForm.requirePhotoID && "Photo ID",
+    appForm.requireUtilityStatement && "Utility statement",
+  ].filter(Boolean) as string[] : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -306,8 +388,8 @@ export function ListingDetail({ listingId }: { listingId: string }) {
             </Button>
           </CardContent>
         </Card>
-      ) : listing.applicationFormId ? (
-        /* Listing has an application form — show direct Apply Now CTA */
+      ) : listing.applicationFormId && !applyMode ? (
+        /* Listing has an application form — show Apply Now CTA */
         <Card className="border-orange-200 bg-orange-50 p-5">
           <CardContent className="flex flex-col gap-3 p-0">
             <div className="flex items-center gap-2">
@@ -318,8 +400,8 @@ export function ListingDetail({ listingId }: { listingId: string }) {
               The property manager has set up a screening process. Apply now and they&apos;ll
               review your RGE Trust Profile and application details.
             </p>
-            <Button size="sm" onClick={handleApply} disabled={working}>
-              {working ? "Submitting…" : "Apply Now"}
+            <Button size="sm" onClick={() => setApplyMode(true)}>
+              Apply Now
             </Button>
             <button
               type="button"
@@ -341,6 +423,168 @@ export function ListingDetail({ listingId }: { listingId: string }) {
                   <CalendarCheck className="h-3.5 w-3.5" /> Request visit
                 </Button>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : listing.applicationFormId && applyMode ? (
+        /* Inline application form */
+        <Card className="p-5">
+          <CardContent className="flex flex-col gap-4 p-0">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setApplyMode(false)}
+                className="rounded-full p-1 text-neutral-400 hover:bg-neutral-100"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <h2 className="text-sm font-semibold text-navy-900">
+                Application — {listing.title}
+              </h2>
+            </div>
+
+            {appFormLoading ? (
+              <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading form…
+              </div>
+            ) : (
+              <>
+                {/* Standard fields */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Input
+                    label="Monthly income ($)"
+                    type="number"
+                    value={monthlyIncome}
+                    onChange={(e) => setMonthlyIncome(e.target.value)}
+                    placeholder="e.g. 5000"
+                  />
+                  <Input
+                    label="Employer / income source"
+                    value={employer}
+                    onChange={(e) => setEmployer(e.target.value)}
+                    placeholder="e.g. Acme Corp"
+                  />
+                  <Input
+                    label="Emergency contact name"
+                    value={emergencyName}
+                    onChange={(e) => setEmergencyName(e.target.value)}
+                  />
+                  <Input
+                    label="Emergency contact phone"
+                    value={emergencyPhone}
+                    onChange={(e) => setEmergencyPhone(e.target.value)}
+                    type="tel"
+                  />
+                  <Input
+                    label="Desired move-in date"
+                    type="date"
+                    value={moveInDate}
+                    onChange={(e) => setMoveInDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                  />
+                </div>
+
+                <Textarea
+                  label="Message to property manager (optional)"
+                  rows={3}
+                  value={appMessage}
+                  onChange={(e) => setAppMessage(e.target.value)}
+                  placeholder="Tell the property manager a bit about yourself…"
+                />
+
+                {/* Custom questions */}
+                {appForm && appForm.customQuestions.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-xs font-medium text-navy-900">Additional questions</p>
+                    {appForm.customQuestions.map((q, i) => (
+                      <Textarea
+                        key={i}
+                        label={q}
+                        rows={2}
+                        value={customAnswers[q] ?? ""}
+                        onChange={(e) =>
+                          setCustomAnswers((prev) => ({ ...prev, [q]: e.target.value }))
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Document uploads */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-navy-900">
+                    Supporting documents
+                    {docRequirements.length > 0 && (
+                      <span className="ml-1 font-normal text-neutral-500 text-xs">
+                        (required: {docRequirements.join(", ")})
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploadedDocs.length >= 10}
+                    className="flex items-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 px-4 py-2.5 text-sm text-neutral-500 hover:border-orange-300 hover:text-orange-500 transition disabled:opacity-50"
+                  >
+                    {uploadingCount > 0 ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading {uploadingCount} file{uploadingCount !== 1 ? "s" : ""}…
+                      </>
+                    ) : (
+                      <>
+                        <FileUp className="h-4 w-4" />
+                        Upload documents (PDF, images, Word)
+                      </>
+                    )}
+                  </button>
+                  {uploadedDocs.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {uploadedDocs.map((url, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs">
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 truncate text-orange-600 hover:underline"
+                          >
+                            Document {i + 1}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setUploadedDocs((prev) => prev.filter((_, j) => j !== i))}
+                            className="text-neutral-400 hover:text-red-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-2 text-[10px] text-neutral-400">
+                    Your documents are stored securely. ResiGrid never sells or shares your personal
+                    information with third parties.
+                  </p>
+                </div>
+
+                {error && <p className="text-sm text-red-600">{error}</p>}
+
+                <Button
+                  onClick={handleSubmitApplication}
+                  disabled={working || uploadingCount > 0}
+                >
+                  {working ? "Submitting…" : "Submit application"}
+                </Button>
+              </>
             )}
           </CardContent>
         </Card>

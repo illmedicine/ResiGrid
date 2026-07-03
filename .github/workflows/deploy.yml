@@ -151,6 +151,11 @@ jobs:
           SQUARE_ACCESS_TOKEN: ${{ secrets.SQUARE_ACCESS_TOKEN }}
           SQUARE_APPLICATION_SECRET: ${{ secrets.SQUARE_APPLICATION_SECRET }}
 
+      - name: Build (static export for Firebase Hosting)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ""
+
       - name: Deploy Firestore rules + indexes (ResiGrid)
         run: npx firebase deploy --only firestore --token "$FIREBASE_TOKEN" --non-interactive
         continue-on-error: true
@@ -159,6 +164,11 @@ jobs:
 
       - name: Deploy Cloud Functions
         run: npx firebase deploy --only functions --token "$FIREBASE_TOKEN" --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy Firebase Hosting (resigrid.co)
+        run: npx firebase deploy --only hosting --token "$FIREBASE_TOKEN" --non-interactive
         continue-on-error: true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

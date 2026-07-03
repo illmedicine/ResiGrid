@@ -40,7 +40,41 @@ const CITIES: Array<{ city: string; state: string }> = [
   { city: "Chicago",     state: "IL" },
   { city: "Atlanta",     state: "GA" },
   { city: "Houston",     state: "TX" },
+  { city: "Buffalo",     state: "NY" },
+  { city: "Miami",       state: "FL" },
+  { city: "Denver",      state: "CO" },
+  { city: "Seattle",     state: "WA" },
+  { city: "Phoenix",     state: "AZ" },
 ];
+
+// Curated Unsplash apartment photos used as fallback when API provides none.
+// Assigned deterministically by listing ID so the same listing always shows
+// the same photo across seeding runs.
+const PHOTO_POOL = [
+  "photo-1545324418-cc1a3fa10c00", // apartment building exterior
+  "photo-1560448204-e02f11c3d0e2", // modern living room
+  "photo-1522708323590-d24dbb6b0267", // contemporary bedroom
+  "photo-1558618666-fcd25c85cd64", // luxury apartment
+  "photo-1554995207-c18c203602cb", // city apartment building
+  "photo-1567496898669-ee935f5f647a", // bright apartment interior
+  "photo-1512917774080-9991f1c4c750", // house exterior
+  "photo-1493809842364-78817add7ffb", // open-plan living
+  "photo-1416331108676-a22ccb276e35", // urban apartment
+  "photo-1536376072261-38c75010e6c9", // modern bedroom interior
+  "photo-1600566753086-00f18fb6b3ea", // contemporary kitchen
+  "photo-1615873968403-89e068629265", // apartment complex exterior
+  "photo-1502672260266-1c1ef2d93688", // stylish living space
+  "photo-1484154218962-a197022b5858", // bright kitchen
+  "photo-1486325212027-8081e485255e", // building facade
+];
+
+function pickPhotos(listingId: string, apiPhotos: string[] | undefined): string[] {
+  if (apiPhotos && apiPhotos.length > 0) return apiPhotos;
+  // Deterministic pick based on listing ID characters
+  const idx = listingId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % PHOTO_POOL.length;
+  const photo = `https://images.unsplash.com/${PHOTO_POOL[idx]}?auto=format&fit=crop&w=800&q=80`;
+  return [photo];
+}
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
@@ -341,7 +375,7 @@ async function main(): Promise<void> {
             beds: l.bedrooms ?? 0, baths: l.bathrooms ?? 0,
             sqft: l.squareFootage ?? null, rent: l.price ?? 0,
             propertyType: l.propertyType ?? "Apartment",
-            photos: l.photoUrls ?? [],
+            photos: pickPhotos(docId, l.photoUrls),
             status: l.status ?? "Active",
             daysOnMarket: l.daysOnMarket ?? null,
             latitude: l.latitude ?? null, longitude: l.longitude ?? null,

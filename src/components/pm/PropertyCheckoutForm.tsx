@@ -20,7 +20,6 @@ const schema = z.object({
   city: z.string().min(1, "City is required"),
   state: z.string().min(2, "State is required"),
   zip: z.string().min(5, "ZIP code is required"),
-  unitCount: z.coerce.number().min(1).max(500),
 });
 
 type FormInput = z.input<typeof schema>;
@@ -44,7 +43,6 @@ export function PropertyCheckoutForm() {
     formState: { errors },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { unitCount: "1" as unknown as number },
   });
 
   const tier = PM_TIERS[selectedTier];
@@ -84,7 +82,7 @@ export function PropertyCheckoutForm() {
         city: values.city,
         state: values.state,
         zip: values.zip,
-        unitCount: values.unitCount,
+        unitCount: 1,
       });
 
       router.push("/pm/properties");
@@ -155,21 +153,6 @@ export function PropertyCheckoutForm() {
           <Input label="City" {...register("city")} error={errors.city?.message} />
           <Input label="State" {...register("state")} error={errors.state?.message} />
           <Input label="ZIP" {...register("zip")} error={errors.zip?.message} />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-navy-900">
-            Number of units
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={500}
-            {...register("unitCount")}
-            className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-orange-400"
-          />
-          {errors.unitCount && (
-            <p className="mt-1 text-xs text-red-600">{errors.unitCount.message}</p>
-          )}
         </div>
       </div>
 

@@ -97,6 +97,7 @@ export interface ApplicationDoc {
   id: string;
   tenantId: string;
   listingId: string;
+  unitId?: string;
   pmId?: string;
   status: ApplicationStatus;
   reputationSnapshot?: ReputationScoreDoc;
@@ -115,6 +116,7 @@ export interface ApplicationDoc {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   moveInDate?: number;
+  customAnswers?: Record<string, string>;
 }
 
 /** Tenant expresses interest in a listing or requests a visit */

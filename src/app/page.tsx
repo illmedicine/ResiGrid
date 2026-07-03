@@ -4,6 +4,7 @@ import {
   BarChart3,
   Building2,
   FileCheck,
+  Search,
   ShieldCheck,
   Wallet,
   Wrench,
@@ -82,23 +83,53 @@ export default function Home() {
         </Link>
 
         {/* Tenant card — right / second */}
-        <Link href="/login?role=tenant" className="block">
-          <Card className="h-full p-6 transition-all hover:-translate-y-1 hover:shadow-xl">
-            <CardContent className="flex flex-col items-start gap-3 p-0">
+        <Card className="h-full p-6 transition-all hover:-translate-y-1 hover:shadow-xl">
+          <CardContent className="flex flex-col items-start gap-3 p-0 h-full">
+            <div className="flex items-center gap-3">
               <span className="rounded-full bg-navy-900/10 p-3 text-navy-900">
                 <Wallet className="h-6 w-6" />
               </span>
-              <h2 className="text-xl font-bold text-navy-900">I&apos;m a Tenant</h2>
-              <p className="text-sm text-neutral-600">
-                Stop paying to pay rent. Fee-free transfers, a portable RGE Trust
-                Profile, and a reputation that works harder than any credit bureau.
-              </p>
-              <span className="mt-2 text-sm font-semibold text-orange-600">
-                Join the Grid →
+              <span className="rounded-full bg-orange-50 p-3 text-orange-500">
+                <Search className="h-6 w-6" />
               </span>
-            </CardContent>
-          </Card>
-        </Link>
+            </div>
+            <h2 className="text-xl font-bold text-navy-900">I&apos;m a Tenant</h2>
+            <p className="text-sm text-neutral-600">
+              Search thousands of apartments nationwide, apply directly, and pay rent
+              fee-free. Every on-time payment builds your portable{" "}
+              <strong className="text-navy-900">RGE Trust Profile</strong>—a reputation
+              that travels with you to your next home.
+            </p>
+            <ul className="mt-1 flex flex-col gap-1.5 text-xs text-neutral-500">
+              <li className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
+                Browse &amp; apply — no account needed to search
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
+                $0 rent payment fees — forever
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shrink-0" />
+                Portable RGE Score follows you property to property
+              </li>
+            </ul>
+            <div className="mt-auto flex flex-wrap gap-2 pt-3">
+              <Link
+                href="/listings"
+                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 transition"
+              >
+                Browse listings →
+              </Link>
+              <Link
+                href="/login?role=tenant"
+                className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-navy-900 hover:border-orange-300 transition"
+              >
+                Join the Grid →
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
       {/* ── PM value proposition (image band) — FIRST ─────────────── */}

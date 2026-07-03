@@ -6,7 +6,7 @@ export default function TenantSearchPage() {
       <div>
         <h1 className="text-xl font-bold text-navy-900">Search apartments</h1>
         <p className="text-sm text-neutral-600">
-          Featured listings are from property managers on ResiGrid.
+          ResiGrid properties are featured — nationwide listings are updated every 20 hours from a live rental database.
         </p>
       </div>
       <ListingSearch />

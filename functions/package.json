@@ -12,7 +12,9 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "seed:rentcast": "tsc && node lib/scripts/seedRentCast.js",
+    "seed:rentcast:force": "tsc && node lib/scripts/seedRentCast.js --force"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

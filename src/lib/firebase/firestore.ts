@@ -16,6 +16,7 @@ import type {
   MaintenanceRequestDoc,
   MessageDoc,
   MessageThreadDoc,
+  NationalListingDoc,
   NoticeDoc,
   PaymentDoc,
   PaymentReviewDoc,
@@ -73,3 +74,5 @@ export const sharedDocumentsCol = () =>
   typedCollection<SharedDocumentDoc>("sharedDocuments");
 export const paymentReviewsCol = () =>
   typedCollection<PaymentReviewDoc>("paymentReviews");
+export const nationalListingsCol = () =>
+  typedCollection<NationalListingDoc>("nationalListings");

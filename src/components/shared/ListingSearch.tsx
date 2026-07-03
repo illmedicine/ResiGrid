@@ -1,23 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { onSnapshot, query, where } from "firebase/firestore";
-import { Search } from "lucide-react";
-import { listingsCol } from "@/lib/firebase/firestore";
+import { onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
+import { Search, Globe } from "lucide-react";
+import { listingsCol, nationalListingsCol } from "@/lib/firebase/firestore";
 import { DEMO_LISTINGS, filterDemoListings } from "@/lib/listings/demoListings";
 import { Input } from "@/components/ui/Input";
 import { ListingCard } from "@/components/shared/ListingCard";
-import type { ListingDoc } from "@/lib/types/models";
+import { NationalListingCard } from "@/components/shared/NationalListingCard";
+import type { ListingDoc, NationalListingDoc } from "@/lib/types/models";
 
 export function ListingSearch() {
   const [resiListings, setResiListings] = useState<ListingDoc[]>([]);
+  const [nationalListings, setNationalListings] = useState<NationalListingDoc[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [nationalLoading, setNationalLoading] = useState(true);
 
-  // Load real Firestore listings (from actual ResiGrid property managers)
+  // ResiGrid native listings (published by PMs on the platform)
   useEffect(() => {
     const q = query(listingsCol(), where("status", "==", "published"));
-    const unsub = onSnapshot(
+    return onSnapshot(
       q,
       (snap) => {
         setResiListings(snap.docs.map((d) => ({ ...d.data(), id: d.id } as ListingDoc)));
@@ -25,14 +28,30 @@ export function ListingSearch() {
       },
       () => setLoading(false),
     );
-    return unsub;
   }, []);
 
-  const allListings = useMemo(() => {
+  // National listings cached from RentCast (publicly readable, no auth required)
+  useEffect(() => {
+    const q = query(
+      nationalListingsCol(),
+      orderBy("syncedAt", "desc"),
+      limit(200),
+    );
+    return onSnapshot(
+      q,
+      (snap) => {
+        setNationalListings(snap.docs.map((d) => ({ ...d.data(), id: d.id } as NationalListingDoc)));
+        setNationalLoading(false);
+      },
+      () => setNationalLoading(false),
+    );
+  }, []);
+
+  const { resiResults, demoResults, nationalResults } = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    // Real listings: text-filter + featured first
-    const filteredResi = (
+    // ResiGrid listings — featured first
+    const resiResults = (
       term
         ? resiListings.filter((l) =>
             [l.title, l.city, l.state, l.zip].join(" ").toLowerCase().includes(term),
@@ -40,15 +59,28 @@ export function ListingSearch() {
         : resiListings
     ).sort((a, b) => Number(b.featured) - Number(a.featured));
 
-    // Demo listings: filter by search term
-    const filteredDemo = filterDemoListings(search);
+    // Demo listings
+    const demoResults = filterDemoListings(search);
 
-    // Real listings appear first, demos fill in the rest
-    return [...filteredResi, ...filteredDemo];
-  }, [resiListings, search]);
+    // National listings — filter by address/city/state/zip
+    const nationalResults = term
+      ? nationalListings.filter((l) =>
+          [l.formattedAddress, l.city, l.state, l.zipCode, l.addressLine1]
+            .join(" ")
+            .toLowerCase()
+            .includes(term),
+        )
+      : nationalListings;
+
+    return { resiResults, demoResults, nationalResults };
+  }, [resiListings, nationalListings, search]);
+
+  const isLoading = loading || nationalLoading;
+  const hasResi = resiResults.length > 0 || demoResults.length > 0;
+  const hasNational = nationalResults.length > 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-600" />
         <Input
@@ -59,28 +91,75 @@ export function ListingSearch() {
         />
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <p className="text-sm text-neutral-600">Loading listings…</p>
-      ) : allListings.length === 0 ? (
+      ) : !hasResi && !hasNational ? (
         <p className="text-sm text-neutral-600">No listings match your search.</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {allListings.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                href={`/listings/view/?id=${listing.id}`}
-              />
-            ))}
-          </div>
+          {/* ── ResiGrid listings ── */}
+          {hasResi && (
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-navy-900">
+                  ResiGrid Properties
+                  {resiResults.length > 0 && (
+                    <span className="ml-1.5 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-600">
+                      {resiResults.length} live
+                    </span>
+                  )}
+                </h2>
+                <p className="text-[11px] text-neutral-500">
+                  Apply directly through the platform
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {resiResults.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    href={`/listings/view/?id=${listing.id}`}
+                  />
+                ))}
+                {demoResults.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    href={`/listings/view/?id=${listing.id}`}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-          {/* Attribution note */}
+          {/* ── Nationwide listings from RentCast ── */}
+          {hasNational && (
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-sky-700" />
+                <h2 className="text-sm font-semibold text-navy-900">
+                  Nationwide Listings
+                </h2>
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                  {nationalResults.length.toLocaleString()} available
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Sourced from a national rental database · Updated every 20 hours · Contact agents directly
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {nationalResults.map((listing) => (
+                  <NationalListingCard key={listing.id} listing={listing} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Attribution */}
           <p className="text-center text-xs text-neutral-500">
-            Sample listings shown for demonstration.{" "}
             {resiListings.length > 0 ? (
               <span className="font-medium text-orange-500">
-                {resiListings.length} live listing{resiListings.length !== 1 ? "s" : ""} from ResiGrid property managers.
+                {resiListings.length} live listing{resiListings.length !== 1 ? "s" : ""} from ResiGrid property managers.{" "}
               </span>
             ) : (
               <span>
@@ -88,7 +167,12 @@ export function ListingSearch() {
                 <a href="/login?role=property_manager" className="font-medium text-orange-500 hover:underline">
                   list your properties
                 </a>{" "}
-                to reach verified RGE tenants.
+                to reach verified RGE tenants.{" "}
+              </span>
+            )}
+            {nationalResults.length > 0 && (
+              <span className="text-neutral-400">
+                Nationwide data from RentCast.
               </span>
             )}
           </p>

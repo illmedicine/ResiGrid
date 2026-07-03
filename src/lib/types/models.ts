@@ -397,6 +397,34 @@ export interface SharedDocumentDoc {
   createdAt: number;
 }
 
+/** National listing synced from RentCast — read-only, never owned by a PM in ResiGrid */
+export interface NationalListingDoc {
+  id: string;               // "rc_{rentcastId}"
+  source: "rentcast";
+  formattedAddress: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  beds: number;
+  baths: number;
+  sqft?: number | null;
+  rent: number;
+  propertyType: string;
+  photos: string[];
+  status: string;
+  daysOnMarket?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  agentName?: string | null;
+  agentEmail?: string | null;
+  agentPhone?: string | null;
+  description?: string | null;
+  listingUrl?: string | null;
+  listedDate?: string | null;
+  syncedAt: number;
+}
+
 /** Savable template — PM can reuse for future leases */
 export interface LeaseTemplateDoc {
   id: string;

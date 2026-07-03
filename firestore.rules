@@ -161,6 +161,18 @@ service cloud.firestore {
       allow read, write: if isSelf(uid);
     }
 
+    // --- National listings (RentCast cache — publicly readable, admin-write only) ---
+    match /nationalListings/{listingId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // --- System config (seed timestamps etc — publicly readable, admin-write only) ---
+    match /systemConfig/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // --- Square OAuth connections (server-only; Cloud Functions via admin SDK) ---
     match /squareConnections/{uid} {
       allow read, write: if false;

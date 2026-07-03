@@ -1,0 +1,51 @@
+name: Seed RentCast Listings
+
+on:
+  schedule:
+    # Every 20 hours — ~36 calls/month, well under the 50/month limit.
+    # Rotates through 5 cities (NYC, LA, Chicago, Atlanta, Houston).
+    - cron: '0 */20 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Skip 20-hour cooldown and seed immediately'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Compile TypeScript
+        run: npx tsc
+        working-directory: functions
+
+      - name: Write service account key
+        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/sa.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Run seeder
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          node lib/scripts/seedRentCast.js $FORCE_FLAG
+        working-directory: functions
+        env:
+          RENTCAST_API_KEY: ${{ secrets.RENTCAST_API_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json

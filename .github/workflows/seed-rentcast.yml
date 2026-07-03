@@ -29,8 +29,8 @@ jobs:
         run: npm ci
         working-directory: functions
 
-      - name: Compile TypeScript
-        run: npx tsc
+      - name: Compile seed script
+        run: npx tsc --project tsconfig.seed.json
         working-directory: functions
 
       - name: Run seeder

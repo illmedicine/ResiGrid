@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { PM_TIERS, type TierConfig } from "@/lib/pricing/fees";
 import type { PMSubscriptionDoc } from "@/lib/types/models";
 
 export const TRIAL_DAYS = 3;
@@ -57,5 +58,7 @@ export function usePMSubscription(uid: string | undefined) {
     return unsub;
   }, [uid]);
 
-  return { sub, loading, isActive: sub?.active === true };
+  const tierConfig: TierConfig | null = sub?.tier ? (PM_TIERS[sub.tier] ?? null) : null;
+
+  return { sub, loading, isActive: sub?.active === true, tierConfig };
 }

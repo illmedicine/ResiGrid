@@ -5,6 +5,8 @@ import { doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { Camera, Plus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { listingsCol } from "@/lib/firebase/firestore";
+import { useAuth } from "@/lib/firebase/hooks";
+import { usePMSubscription } from "@/lib/hooks/usePMSubscription";
 import { useUnitsForProperty } from "@/lib/hooks/useUnitsForProperty";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +16,8 @@ import { PhotoUpload } from "@/components/pm/PhotoUpload";
 import type { ListingDoc, PropertyDoc } from "@/lib/types/models";
 
 export function PropertyDetail({ propertyId }: { propertyId: string }) {
+  const { user } = useAuth();
+  const { tierConfig } = usePMSubscription(user?.uid);
   const [property, setProperty] = useState<PropertyDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const { units, loading: unitsLoading } = useUnitsForProperty(propertyId);
@@ -86,23 +90,33 @@ export function PropertyDetail({ propertyId }: { propertyId: string }) {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-navy-900">
-          Units
-          <span className="ml-2 text-xs font-normal text-neutral-500">
-            {units.length} / 20
-          </span>
-        </h2>
-        <Button size="sm" onClick={() => setShowForm((v) => !v)} disabled={units.length >= 20}>
-          <Plus className="h-4 w-4" />
-          Add unit
-        </Button>
-      </div>
-      {units.length >= 20 && (
-        <p className="text-xs text-amber-600">
-          20-unit limit reached. Contact support to expand your property.
-        </p>
-      )}
+      {(() => {
+        const maxUnits = tierConfig?.maxUnitsPerProperty ?? 20;
+        const atLimit = units.length >= maxUnits;
+        const isUnlimited = tierConfig?.maxUnitsPerProperty == null;
+        return (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-navy-900">
+                Units
+                <span className="ml-2 text-xs font-normal text-neutral-500">
+                  {isUnlimited ? units.length : `${units.length} / ${maxUnits}`}
+                </span>
+              </h2>
+              <Button size="sm" onClick={() => setShowForm((v) => !v)} disabled={!isUnlimited && atLimit}>
+                <Plus className="h-4 w-4" />
+                Add unit
+              </Button>
+            </div>
+            {!isUnlimited && atLimit && (
+              <p className="text-xs text-amber-600">
+                {tierConfig?.name ?? "Plan"} limit: {maxUnits} units per property.{" "}
+                <a href="/pricing" className="underline hover:no-underline">Upgrade</a> for more.
+              </p>
+            )}
+          </>
+        );
+      })()}
 
       {showForm && (
         <Card className="p-5">

@@ -13,6 +13,7 @@ import type {
   LeaseTemplateDoc,
   LeaseTermsDoc,
   ListingDoc,
+  MaintenanceMessageDoc,
   MaintenanceRequestDoc,
   MessageDoc,
   MessageThreadDoc,
@@ -58,6 +59,8 @@ export const reputationScoresCol = () =>
   typedCollection<ReputationScoreDoc>("reputationScores");
 export const maintenanceRequestsCol = () =>
   typedCollection<MaintenanceRequestDoc>("maintenanceRequests");
+export const maintenanceMessagesCol = (requestId: string) =>
+  typedCollection<MaintenanceMessageDoc>(`maintenanceRequests/${requestId}/messages`);
 export const messageThreadsCol = () =>
   typedCollection<MessageThreadDoc>("messageThreads");
 export const threadMessagesCol = (threadId: string) =>

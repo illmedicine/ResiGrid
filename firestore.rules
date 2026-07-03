@@ -134,6 +134,20 @@ service cloud.firestore {
         (resource.data.tenantId == request.auth.uid ||
          get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
       allow delete: if false;
+
+      // DM thread — one message subcollection per request, readable/writable by tenant and PM only
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.tenantId == request.auth.uid ||
+          get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid
+        );
+        allow create: if isSignedIn() &&
+          request.resource.data.senderId == request.auth.uid && (
+            get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.tenantId == request.auth.uid ||
+            get(/databases/$(database)/documents/maintenanceRequests/$(requestId)).data.pmId == request.auth.uid
+          );
+        allow update, delete: if false;
+      }
     }
 
     // --- Message threads ---

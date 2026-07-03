@@ -232,6 +232,8 @@ export interface MaintenanceRequestDoc {
   unitId: string;
   propertyId: string;
   tenantId: string;
+  /** Property owner uid — set on creation so DM thread security rules can check it directly */
+  pmId?: string;
   category: string;
   item: string;
   affectedRoom?: string;
@@ -239,9 +241,19 @@ export interface MaintenanceRequestDoc {
   photoUrls: string[];
   status: MaintenanceStatus;
   priority: MaintenancePriority;
+  /** @deprecated — kept for backward compat; DM thread is the new channel */
   tenantNotes?: string;
   tenantNotesUpdatedAt?: number;
+  /** @deprecated — kept for backward compat; DM thread is the new channel */
   pmNotes?: string;
+  createdAt: number;
+}
+
+/** A single message in the per-request DM thread */
+export interface MaintenanceMessageDoc {
+  id: string;
+  senderId: string;
+  content: string;
   createdAt: number;
 }
 

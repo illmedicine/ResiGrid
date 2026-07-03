@@ -81,7 +81,7 @@ export default function TenantMaintenancePage() {
               </CardContent>
             </Card>
           )}
-          <MaintenanceRequestList scope="tenant" scopeId={user!.uid} allowTenantNotes />
+          <MaintenanceRequestList scope="tenant" scopeId={user!.uid} />
         </>
       )}
     </div>

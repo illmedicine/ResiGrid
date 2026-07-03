@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { onSnapshot, query, where } from "firebase/firestore";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useAuth } from "@/lib/firebase/hooks";
 import { maintenanceRequestsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { MaintenanceDMThread } from "@/components/shared/MaintenanceDMThread";
 import type { MaintenanceRequestDoc, MaintenanceStatus } from "@/lib/types/models";
 
 const statusTone: Record<MaintenanceStatus, "neutral" | "warning" | "success" | "navy"> = {
@@ -21,46 +21,16 @@ const statusTone: Record<MaintenanceStatus, "neutral" | "warning" | "success" | 
 interface Props {
   scope: "tenant" | "property";
   scopeId: string;
-  /** When true tenant can add/edit tenantNotes */
-  allowTenantNotes?: boolean;
 }
 
-function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; allowTenantNotes?: boolean }) {
+function RequestRow({ req }: { req: MaintenanceRequestDoc }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
-  const [tenantNotes, setTenantNotes] = useState(req.tenantNotes ?? "");
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<number | null>(req.tenantNotesUpdatedAt ?? null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Keep local state in sync when Firestore pushes an update to this request.
-  useEffect(() => {
-    if (!saving) {
-      setTenantNotes(req.tenantNotes ?? "");
-      if (req.tenantNotesUpdatedAt) setSavedAt(req.tenantNotesUpdatedAt);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [req.tenantNotes, req.tenantNotesUpdatedAt]);
-
-  async function handleSaveNotes() {
-    setSaving(true);
-    setSaveError(null);
-    const now = Date.now();
-    try {
-      await updateDoc(doc(db, "maintenanceRequests", req.id), {
-        tenantNotes,
-        tenantNotesUpdatedAt: now,
-      });
-      setSavedAt(now);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save note");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <Card className="p-4">
       <CardContent className="flex flex-col gap-2 p-0">
+        {/* ── Header ── */}
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-navy-900">{req.category} — {req.item}</p>
@@ -71,7 +41,11 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Badge tone={statusTone[req.status]}>{req.status.replace(/_/g, " ")}</Badge>
-            <button type="button" onClick={() => setExpanded((v) => !v)} className="text-neutral-400 hover:text-navy-900">
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-neutral-400 hover:text-navy-900"
+            >
               {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
           </div>
@@ -79,8 +53,10 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
 
         <p className="text-xs text-neutral-600 whitespace-pre-wrap">{req.description}</p>
 
+        {/* ── Expanded ── */}
         {expanded && (
-          <div className="flex flex-col gap-3 border-t border-neutral-100 pt-3">
+          <div className="flex flex-col gap-4 border-t border-neutral-100 pt-3">
+            {/* Photos */}
             {req.photoUrls?.length > 0 && (
               <div>
                 <p className="mb-1.5 text-xs font-medium text-neutral-500">Photos</p>
@@ -88,42 +64,24 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
                   {req.photoUrls.map((url, i) => (
                     <a key={i} href={url} target="_blank" rel="noreferrer">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt={`Photo ${i + 1}`} className="h-24 w-24 rounded-lg object-cover ring-1 ring-neutral-200 hover:ring-orange-400 transition" />
+                      <img
+                        src={url}
+                        alt={`Photo ${i + 1}`}
+                        className="h-24 w-24 rounded-lg object-cover ring-1 ring-neutral-200 transition hover:ring-orange-400"
+                      />
                     </a>
                   ))}
                 </div>
               </div>
             )}
 
-            {req.pmNotes && (
-              <div className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-2">
-                <p className="mb-0.5 text-xs font-medium text-orange-700">Message from your property manager</p>
-                <p className="text-xs text-orange-900 whitespace-pre-wrap">{req.pmNotes}</p>
-              </div>
-            )}
-
-            {allowTenantNotes && (
-              <div>
-                <p className="mb-1 text-xs font-medium text-neutral-700">Your notes (visible to property manager)</p>
-                <textarea
-                  value={tenantNotes}
-                  onChange={(e) => setTenantNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Add any notes or updates…"
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-xs outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                />
-                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                  <Button size="sm" variant="outline" onClick={handleSaveNotes} disabled={saving || !tenantNotes.trim()}>
-                    {saving ? "Saving…" : "Save note"}
-                  </Button>
-                  {savedAt && (
-                    <span className="text-[10px] text-green-600">
-                      Saved {new Date(savedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    </span>
-                  )}
-                </div>
-                {saveError && <p className="mt-1 text-xs text-red-600">{saveError}</p>}
-              </div>
+            {/* DM thread with property manager */}
+            {user && (
+              <MaintenanceDMThread
+                requestId={req.id}
+                currentUserId={user.uid}
+                otherPartyLabel="Property Manager"
+              />
             )}
           </div>
         )}
@@ -132,27 +90,41 @@ function RequestRow({ req, allowTenantNotes }: { req: MaintenanceRequestDoc; all
   );
 }
 
-export function MaintenanceRequestList({ scope, scopeId, allowTenantNotes }: Props) {
+export function MaintenanceRequestList({ scope, scopeId }: Props) {
   const [requests, setRequests] = useState<MaintenanceRequestDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const field = scope === "tenant" ? "tenantId" : "propertyId";
     const q = query(maintenanceRequestsCol(), where(field, "==", scopeId));
-    return onSnapshot(q, (snap) => {
-      setRequests(snap.docs.map((d) => ({ ...d.data(), id: d.id } as MaintenanceRequestDoc)).sort((a, b) => b.createdAt - a.createdAt));
-      setLoading(false);
-    }, () => setLoading(false));
+    return onSnapshot(
+      q,
+      (snap) => {
+        setRequests(
+          snap.docs
+            .map((d) => ({ ...d.data(), id: d.id } as MaintenanceRequestDoc))
+            .sort((a, b) => b.createdAt - a.createdAt),
+        );
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
   }, [scope, scopeId]);
 
   if (loading) return <p className="text-sm text-neutral-600">Loading requests…</p>;
-  if (requests.length === 0) return (
-    <Card className="p-5"><CardContent className="p-0"><p className="text-sm text-neutral-600">No maintenance requests yet.</p></CardContent></Card>
-  );
+  if (requests.length === 0) {
+    return (
+      <Card className="p-5">
+        <CardContent className="p-0">
+          <p className="text-sm text-neutral-600">No maintenance requests yet.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">
-      {requests.map((req) => <RequestRow key={req.id} req={req} allowTenantNotes={allowTenantNotes} />)}
+      {requests.map((req) => <RequestRow key={req.id} req={req} />)}
     </div>
   );
 }

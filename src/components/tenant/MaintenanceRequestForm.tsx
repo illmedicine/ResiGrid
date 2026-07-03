@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc } from "firebase/firestore";
+import { addDoc, doc, getDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { Camera, Loader2, Trash2 } from "lucide-react";
-import { storage } from "@/lib/firebase/config";
+import { db, storage } from "@/lib/firebase/config";
 import { maintenanceRequestsCol } from "@/lib/firebase/firestore";
 import { MAINTENANCE_CATEGORIES } from "@/lib/maintenance/categories";
 import { Button } from "@/components/ui/Button";
@@ -125,11 +125,19 @@ export function MaintenanceRequestForm({
         .filter((p) => !p.uploading && !p.error && p.downloadUrl)
         .map((p) => p.downloadUrl!);
 
+      // Look up property owner so the DM thread security rules can check pmId directly
+      let pmId: string | undefined;
+      if (propertyId) {
+        const propSnap = await getDoc(doc(db, "properties", propertyId));
+        pmId = propSnap.data()?.ownerId as string | undefined;
+      }
+
       await addDoc(maintenanceRequestsCol(), {
         id: "",
         unitId,
         propertyId,
         tenantId,
+        ...(pmId ? { pmId } : {}),
         category,
         item: values.item,
         affectedRoom: values.affectedRoom,

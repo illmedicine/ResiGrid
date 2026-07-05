@@ -4,6 +4,7 @@ import {
   buildSquareAuthorizeUrl,
   getSquareAppCredentials,
   getSquareOAuthClient,
+  SQUARE_OAUTH_SECRETS,
 } from "../lib/square";
 import { claimVoucherForUid } from "./claimVoucher";
 import type { SquareConnectionDoc } from "../types";
@@ -16,7 +17,7 @@ interface ConnectUrlResponse {
  * through Square's `state` param so the callback can auto-claim a pending
  * voucher right after the property manager connects their account. */
 export const getSquareConnectUrl = onCall<{ claimToken?: string }, Promise<ConnectUrlResponse>>(
-  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"], secrets: [...SQUARE_OAUTH_SECRETS] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
@@ -41,7 +42,7 @@ interface CompleteOAuthResponse {
 }
 
 export const completeSquareOAuth = onCall<CompleteOAuthRequest, Promise<CompleteOAuthResponse>>(
-  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"], secrets: [...SQUARE_OAUTH_SECRETS] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");

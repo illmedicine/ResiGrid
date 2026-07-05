@@ -305,6 +305,7 @@ export interface NoticeDoc {
   title: string;
   content: string;
   createdAt: number;
+  readBy?: string[];
 }
 
 export type PMTier = "starter" | "growth" | "mega";
@@ -367,6 +368,8 @@ export interface LeaseTermsDoc {
   tenantId?: string;
   tenantName: string;
   tenantEmail: string;
+  /** Set when this lease originated from an approved application. */
+  applicationId?: string;
 
   termType: LeaseTermType;
   customMonths?: number;

@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc, doc, setDoc } from "firebase/firestore";
+import { addDoc, doc, getDoc, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import {
   BedDouble,
   BookTemplate,
   Car,
+  ClipboardCheck,
   Dog,
   FileText,
   Gavel,
@@ -26,6 +27,8 @@ import { leaseTermsCol, leaseTemplatesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
 import { useUnitsForProperty } from "@/lib/hooks/useUnitsForProperty";
+import { useOwnerApplications } from "@/lib/hooks/useOwnerApplications";
+import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
 import { useLeaseTemplates } from "@/lib/hooks/useLeaseTemplates";
 import { BUILTIN_TEMPLATES, computeEndDate } from "@/lib/lease/templates";
 import { LEGAL_CLAUSE_CATEGORIES } from "@/lib/lease/legalClauses";
@@ -34,6 +37,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import type {
+  ApplicationDoc,
+  ListingDoc,
   LeaseTermsDoc,
   LeaseTemplateDoc,
   LeaseTermType,
@@ -94,15 +99,23 @@ const TERM_OPTS = [
   { value: "custom", label: "Custom" },
 ];
 
-export function LeaseBuilderForm() {
+export function LeaseBuilderForm({
+  initialApplicationId,
+}: {
+  initialApplicationId?: string;
+} = {}) {
   const router = useRouter();
   const { user } = useAuth();
   const { properties } = useOwnerProperties(user?.uid);
   const { templates: savedTemplates } = useLeaseTemplates(user?.uid);
+  const { applications } = useOwnerApplications(user?.uid);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const [pendingUnitId, setPendingUnitId] = useState<string | null>(null);
+  const [convertedApplicationIds, setConvertedApplicationIds] = useState<Set<string>>(new Set());
   const [selectedClauses, setSelectedClauses] = useState<Set<string>>(
     new Set(
       LEGAL_CLAUSE_CATEGORIES.flatMap((c) =>
@@ -111,6 +124,25 @@ export function LeaseBuilderForm() {
     ),
   );
   const { units } = useUnitsForProperty(selectedPropertyId || undefined);
+
+  const approvedApplications = applications.filter(
+    (a) => a.status === "approved" && !convertedApplicationIds.has(a.id),
+  );
+
+  // Track which approved applications have already been turned into a lease,
+  // so they drop out of the "start from an application" picker.
+  useEffect(() => {
+    if (!user) return;
+    const q = query(leaseTermsCol(), where("pmId", "==", user.uid));
+    return onSnapshot(q, (snap) => {
+      const ids = new Set<string>();
+      snap.docs.forEach((d) => {
+        const applicationId = d.data().applicationId as string | undefined;
+        if (applicationId) ids.add(applicationId);
+      });
+      setConvertedApplicationIds(ids);
+    });
+  }, [user]);
 
   const {
     register,
@@ -153,6 +185,44 @@ export function LeaseBuilderForm() {
     setValue("tenantName", tenant.displayName ?? "");
     setValue("tenantEmail", tenant.email ?? "");
   }
+
+  async function loadFromApplication(applicationId: string) {
+    const appSnap = await getDoc(doc(db, "applications", applicationId));
+    if (!appSnap.exists()) return;
+    const application = appSnap.data() as ApplicationDoc;
+
+    const listingSnap = await getDoc(doc(db, "listings", application.listingId));
+    if (listingSnap.exists()) {
+      const listing = listingSnap.data() as ListingDoc;
+      setValue("propertyId", listing.propertyId);
+      setSelectedPropertyId(listing.propertyId);
+      setPendingUnitId(listing.unitId);
+    }
+
+    const tenantSnap = await getDoc(doc(db, "users", application.tenantId));
+    if (tenantSnap.exists()) {
+      const tenant = tenantSnap.data() as UserDoc;
+      setValue("tenantId", application.tenantId);
+      setValue("tenantName", tenant.displayName ?? "");
+      setValue("tenantEmail", tenant.email ?? "");
+    }
+
+    setSelectedApplicationId(applicationId);
+  }
+
+  // Apply the pending unit selection once its property's units have loaded.
+  useEffect(() => {
+    if (pendingUnitId && units.some((u) => u.id === pendingUnitId)) {
+      setValue("unitId", pendingUnitId);
+      setPendingUnitId(null);
+    }
+  }, [units, pendingUnitId, setValue]);
+
+  // Deep-link support: prefill from an approved application passed via ?applicationId=
+  useEffect(() => {
+    if (initialApplicationId) loadFromApplication(initialApplicationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialApplicationId]);
 
   function applyTemplate(t: Omit<LeaseTemplateDoc, "id" | "pmId" | "createdAt"> | typeof BUILTIN_TEMPLATES[string]) {
     setValue("termType", t.termType as FormInput["termType"]);
@@ -252,6 +322,7 @@ export function LeaseBuilderForm() {
         ...(values.customMonths != null ? { customMonths: values.customMonths } : {}),
         ...(endTimestamp != null ? { endDate: endTimestamp } : {}),
         ...(action === "send" ? { sentAt: Date.now() } : {}),
+        ...(selectedApplicationId ? { applicationId: selectedApplicationId } : {}),
       };
 
       const ref = await addDoc(leaseTermsCol(), leaseData);
@@ -290,6 +361,26 @@ export function LeaseBuilderForm() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Start from an approved application */}
+      {approvedApplications.length > 0 && (
+        <Section icon={ClipboardCheck} title="Start from an approved application">
+          <Select
+            label="Approved application (optional)"
+            value={selectedApplicationId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedApplicationId(id);
+              if (id) loadFromApplication(id);
+            }}
+          >
+            <option value="">None — start from scratch</option>
+            {approvedApplications.map((a) => (
+              <ApplicationOption key={a.id} application={a} />
+            ))}
+          </Select>
+        </Section>
+      )}
+
       {/* Template selector */}
       <Section icon={BookTemplate} title="Start from a template">
         <div className="flex flex-wrap gap-2">
@@ -664,5 +755,17 @@ function Section({
       </h3>
       {children}
     </div>
+  );
+}
+
+function ApplicationOption({ application }: { application: ApplicationDoc }) {
+  const tenantName = useUserDisplayName(application.tenantId);
+  return (
+    <option value={application.id}>
+      {tenantName ?? application.tenantId}
+      {application.submittedAt
+        ? ` — applied ${new Date(application.submittedAt).toLocaleDateString()}`
+        : ""}
+    </option>
   );
 }

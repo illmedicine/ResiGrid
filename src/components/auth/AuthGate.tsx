@@ -115,10 +115,12 @@ export function AuthGate() {
       // Keep signingIn=true (shows spinner) until the redirect fires.
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign-in failed";
-      // Ignore "popup closed by user" — they just cancelled
-      if (!msg.includes("popup-closed") && !msg.includes("cancelled")) {
+      if (msg.includes("popup-blocked")) {
+        setError("Your browser blocked the sign-in popup. Please allow popups for this site and try again.");
+      } else if (!msg.includes("popup-closed") && !msg.includes("cancelled")) {
         setError(msg);
       }
+      // popup-closed: user cancelled — just re-enable the button silently.
       setSigningIn(false);
     }
   }

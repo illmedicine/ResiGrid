@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/firebase/hooks";
 import { SpaRedirectHandler } from "@/components/layout/SpaRedirectHandler";
 import { LiveActivityFeed } from "@/components/shared/LiveActivityFeed";
+
+const GA_MEASUREMENT_ID = "G-Q63XPNYFTW";
 
 export const metadata: Metadata = {
   title: "ResiGrid — Your Rent. Your Reputation. Zero Fees.",
@@ -40,6 +43,18 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-dvh flex flex-col bg-neutral-50">
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <AuthProvider>
           <SpaRedirectHandler />
           {children}

@@ -1,8 +1,8 @@
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
-import { getSquareClient, getSquareLocationId, toMoneyCents } from "../lib/square";
+import { getSquareClient, getSquareLocationId, toMoneyCents, SQUARE_SECRETS } from "../lib/square";
 import type { PMSubscriptionDoc } from "../types";
 
 // ── Monthly per-unit billing ──────────────────────────────────────────────────
@@ -11,7 +11,7 @@ import type { PMSubscriptionDoc } from "../types";
 // $1 × occupiedUnits to ResiGrid's Square account.
 
 export const billMonthlyUnits = onSchedule(
-  { schedule: "0 8 1 * *", region: "us-central1", timeoutSeconds: 540 },
+  { schedule: "0 8 1 * *", region: "us-central1", timeoutSeconds: 540, secrets: [...SQUARE_SECRETS] },
   async () => {
     const snap = await db.collection("pmSubscriptions")
       .where("active", "==", true)
@@ -91,7 +91,7 @@ const TIER_NAMES: Record<string, string> = {
 };
 
 export const renewAnnualSubscriptions = onSchedule(
-  { schedule: "0 9 * * *", region: "us-central1", timeoutSeconds: 540 },
+  { schedule: "0 9 * * *", region: "us-central1", timeoutSeconds: 540, secrets: [...SQUARE_SECRETS] },
   async () => {
     const now = Date.now();
     const snap = await db.collection("pmSubscriptions")
@@ -123,7 +123,10 @@ export const renewAnnualSubscriptions = onSchedule(
         try {
           const result = await getSquareClient().paymentsApi.createPayment({
             sourceId: sub.squareCardId,
-            idempotencyKey: `renew-${sub.uid}-${sub.tierExpiresAt}`,
+            idempotencyKey: createHash("sha256")
+              .update(`renew-${sub.uid}-${sub.tierExpiresAt}`)
+              .digest("hex")
+              .slice(0, 40),
             amountMoney: toMoneyCents(feeUsd),
             locationId: getSquareLocationId(),
             customerId: sub.squareCustomerId,

@@ -328,7 +328,7 @@ function PmApplicationViewContent() {
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               Application approved.
               <Button
-                href={`/pm/leases/new?tenantId=${application.tenantId}&listingId=${application.listingId}`}
+                href={`/pm/leases/new?applicationId=${application.id}`}
                 size="sm"
                 className="ml-auto"
               >

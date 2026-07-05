@@ -12,21 +12,17 @@ import type { UserRole } from "@/lib/types/models";
 // Bounce Tracking Mitigations (Privacy Sandbox) clear Firebase's stored auth
 // state when it detects the resigrid.co → firebaseapp.com → google.com →
 // resigrid.co redirect chain as bounce tracking — causing the page to loop
-// back to login without completing sign-in. signInWithPopup avoids any
-// page navigation; Firebase v10 falls back to BroadcastChannel when
-// COOP headers are present, so the popup works correctly on GitHub Pages.
+// back to login without completing sign-in. authDomain is set to resigrid.co
+// so the popup handler runs on the same origin and avoids COOP isolation
+// (accounts.google.com sets COOP: same-origin mid-flow, which would break
+// cross-origin popup references if we used the default firebaseapp.com domain).
 export async function signInWithGoogle(role: UserRole): Promise<void> {
   sessionStorage.setItem("resigrid_pending_role", role);
   const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-    // onAuthStateChanged fires on the main page → AuthProvider's onSnapshot
-    // handler creates the user doc → AuthGate's useEffect redirects to portal.
-  } catch (err) {
-    // Clear pending role so a retry doesn't use stale data.
-    sessionStorage.removeItem("resigrid_pending_role");
-    throw err;
-  }
+  // Don't clear sessionStorage in a catch — if signInWithPopup rejects due
+  // to a transient error but Firebase auth state was set, AuthProvider's
+  // onSnapshot still needs the role to create the user doc correctly.
+  await signInWithPopup(auth, provider);
 }
 
 export async function signUpWithEmail(

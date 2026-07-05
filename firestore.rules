@@ -1,4 +1,4 @@
-﻿rules_version = '2';
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -234,9 +234,14 @@ service cloud.firestore {
 
     match /notices/{noticeId} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && (
+      allow create: if isSignedIn() && (
         request.resource.data.pmId == request.auth.uid ||
         isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
       );
       allow delete: if isSignedIn() && (
         resource.data.pmId == request.auth.uid ||

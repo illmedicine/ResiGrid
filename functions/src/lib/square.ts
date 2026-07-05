@@ -1,6 +1,18 @@
 import { Client, Environment } from "square";
 import { HttpsError } from "firebase-functions/v2/https";
 
+export const SQUARE_SECRETS = [
+  "SQUARE_ACCESS_TOKEN",
+  "SQUARE_LOCATION_ID",
+] as const;
+
+export const SQUARE_OAUTH_SECRETS = [
+  ...SQUARE_SECRETS,
+  "SQUARE_APPLICATION_ID",
+  "SQUARE_APPLICATION_SECRET",
+  "SQUARE_OAUTH_REDIRECT_URI",
+] as const;
+
 function resolveEnvironment(): Environment {
   return process.env.SQUARE_ENV === "sandbox"
     ? Environment.Sandbox
@@ -15,7 +27,7 @@ const SQUARE_DOMAIN =
 /** ResiGrid's own platform Square account — used to charge tenants and to
  * hold card-on-file vouchers for recipients who haven't connected yet. */
 export function getSquareClient(): Client {
-  const accessToken = process.env.SQUARE_ACCESS_TOKEN;
+  const accessToken = process.env.SQUARE_ACCESS_TOKEN?.trim();
   if (!accessToken) {
     throw new HttpsError("failed-precondition", "Square payments are not configured on this server.");
   }
@@ -35,7 +47,7 @@ export function getSquareOAuthClient(): Client {
 }
 
 export function getSquareLocationId(): string {
-  const locationId = process.env.SQUARE_LOCATION_ID;
+  const locationId = process.env.SQUARE_LOCATION_ID?.trim();
   if (!locationId) {
     throw new HttpsError("failed-precondition", "Square location is not configured on this server.");
   }
@@ -43,9 +55,9 @@ export function getSquareLocationId(): string {
 }
 
 export function getSquareAppCredentials() {
-  const clientId = process.env.SQUARE_APPLICATION_ID;
-  const clientSecret = process.env.SQUARE_APPLICATION_SECRET;
-  const redirectUri = process.env.SQUARE_OAUTH_REDIRECT_URI;
+  const clientId = process.env.SQUARE_APPLICATION_ID?.trim();
+  const clientSecret = process.env.SQUARE_APPLICATION_SECRET?.trim();
+  const redirectUri = process.env.SQUARE_OAUTH_REDIRECT_URI?.trim();
   if (!clientId || !clientSecret || !redirectUri) {
     throw new HttpsError(
       "failed-precondition",

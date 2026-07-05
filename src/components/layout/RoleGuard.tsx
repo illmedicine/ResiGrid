@@ -17,7 +17,7 @@ export function RoleGuard({ role, children }: RoleGuardProps) {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      router.replace("/login");
+      router.replace(role === "property_manager" ? "/login?role=property_manager" : "/login?role=tenant");
       return;
     }
     if (userDoc && userDoc.role !== role) {

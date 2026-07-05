@@ -98,12 +98,89 @@ export interface MaintenanceRequestDoc {
   photoUrls: string[];
   status: "submitted" | "acknowledged" | "in_progress" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
+  pmNotes?: string;
   createdAt: number;
 }
 
 export interface PropertyDoc {
   id: string;
   ownerId: string;
+  name?: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
+export interface UnitDoc {
+  id: string;
+  propertyId: string;
+  unitNumber: string;
+  currentTenantId?: string;
+}
+
+export type ApplicationStatus =
+  | "shortlisted"
+  | "invited"
+  | "submitted"
+  | "under_review"
+  | "more_info_needed"
+  | "approved"
+  | "denied"
+  | "withdrawn";
+
+export interface ApplicationDoc {
+  id: string;
+  tenantId: string;
+  listingId: string;
+  pmId?: string;
+  unitId?: string;
+  status: ApplicationStatus;
+  message?: string;
+  submittedAt: number;
+  decisionNote?: string;
+}
+
+export interface ListingDoc {
+  id: string;
+  ownerId: string;
+  unitId: string;
+  propertyId: string;
+  title: string;
+  addressLine1?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export type NoticeScope = "all" | "property" | "unit";
+
+export interface NoticeDoc {
+  id: string;
+  pmId: string;
+  scope: NoticeScope;
+  scopeId?: string;
+  title: string;
+  content: string;
+  createdAt: number;
+}
+
+export interface LeaseTermsDoc {
+  id: string;
+  pmId: string;
+  pmDisplayName?: string;
+  unitId: string;
+  propertyId: string;
+  tenantId?: string;
+  tenantName: string;
+  tenantEmail: string;
+  rent: number;
+  startDate: number;
+  endDate?: number;
+  status: "draft" | "sent" | "tenant_signed" | "fully_signed" | "expired";
+  createdAt: number;
+  sentAt?: number;
+  tenantSignedAt?: number;
 }
 
 export interface SquareConnectionDoc {

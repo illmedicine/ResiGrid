@@ -15,11 +15,11 @@ import { PM_TIERS, TIER_ORDER, type PMTier } from "@/lib/pricing/fees";
 import type { SquareCard } from "@/lib/square/client";
 
 const schema = z.object({
-  propertyName: z.string().min(1, "Property name is required"),
-  addressLine1: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(2, "State is required"),
-  zip: z.string().min(5, "ZIP code is required"),
+  propertyName: z.string().optional(),
+  addressLine1: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
   termsAgreed: z.literal(true, {
     message: "You must agree to the billing terms to continue.",
   }),
@@ -29,7 +29,7 @@ type FormInput = z.input<typeof schema>;
 type FormValues = z.output<typeof schema>;
 
 interface CreatePMSubscriptionResponse {
-  propertyId: string;
+  propertyId?: string;
   amountCharged: number;
 }
 
@@ -70,12 +70,12 @@ export function PropertyCheckoutForm() {
         {
           sourceId: string;
           tier: PMTier;
-          propertyName: string;
-          addressLine1: string;
-          city: string;
-          state: string;
-          zip: string;
-          unitCount: number;
+          propertyName?: string;
+          addressLine1?: string;
+          city?: string;
+          state?: string;
+          zip?: string;
+          unitCount?: number;
         },
         CreatePMSubscriptionResponse
       >(functions, "createPMSubscription");
@@ -83,12 +83,14 @@ export function PropertyCheckoutForm() {
       await activate({
         sourceId: tokenResult.token,
         tier: selectedTier,
-        propertyName: values.propertyName,
-        addressLine1: values.addressLine1,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        unitCount: 1,
+        ...(values.propertyName?.trim() ? {
+          propertyName: values.propertyName.trim(),
+          addressLine1: values.addressLine1?.trim(),
+          city: values.city?.trim(),
+          state: values.state?.trim(),
+          zip: values.zip?.trim(),
+          unitCount: 1,
+        } : {}),
       });
 
       router.push("/pm/properties");
@@ -140,10 +142,18 @@ export function PropertyCheckoutForm() {
 
       {/* ── Property details ── */}
       <div className="flex flex-col gap-4">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
-          <Building2 className="h-5 w-5 text-orange-500" />
-          First property
-        </h2>
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
+            <Building2 className="h-5 w-5 text-orange-500" />
+            First property
+            <span className="ml-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-normal text-neutral-500">
+              optional
+            </span>
+          </h2>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            Already added your property during the trial? Leave this blank — your properties are saved.
+          </p>
+        </div>
         <Input
           label="Property name"
           placeholder="e.g. Maple Street Apartments"

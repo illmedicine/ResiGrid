@@ -1,6 +1,13 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { LeaseBuilderForm } from "@/components/pm/lease/LeaseBuilderForm";
 
-export default function NewLeasePage() {
+function NewLeaseContent() {
+  const params = useSearchParams();
+  const applicationId = params.get("applicationId") ?? undefined;
+
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -10,7 +17,15 @@ export default function NewLeasePage() {
           then send directly to your tenant.
         </p>
       </div>
-      <LeaseBuilderForm />
+      <LeaseBuilderForm initialApplicationId={applicationId} />
     </div>
+  );
+}
+
+export default function NewLeasePage() {
+  return (
+    <Suspense>
+      <NewLeaseContent />
+    </Suspense>
   );
 }

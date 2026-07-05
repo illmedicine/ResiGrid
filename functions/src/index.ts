@@ -12,3 +12,7 @@ export { awardResidentBadge } from "./reputation/awardResidentBadge";
 export { notifyOnMaintenanceRequest } from "./maintenance/notify";
 export { notifyOnNewMessage } from "./messaging/notify";
 export { onUserDocCreated } from "./auth/onUserCreate";
+export { onApplicationCreated, onApplicationUpdated } from "./notifications/onApplicationChanged";
+export { onNoticeCreated } from "./notifications/onNoticeCreated";
+export { onLeaseTermsCreated, onLeaseTermsUpdated } from "./notifications/onLeaseTermsChanged";
+export { onMaintenanceRequestUpdated } from "./notifications/onMaintenanceUpdated";

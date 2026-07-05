@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils/cn";
 import { signOut } from "@/lib/firebase/auth";
@@ -22,6 +22,24 @@ export interface PortalNavItem {
 interface PortalShellProps {
   navItems: PortalNavItem[];
   children: ReactNode;
+  notificationBadge?: { count: number; href: string };
+}
+
+function NotificationBell({ badge }: { badge: { count: number; href: string } }) {
+  return (
+    <Link
+      href={badge.href}
+      className="relative rounded-lg p-2 text-neutral-600 transition hover:bg-neutral-100"
+      aria-label={badge.count > 0 ? `${badge.count} unread notices` : "Notices"}
+    >
+      <Bell className="h-5 w-5" />
+      {badge.count > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+          {badge.count > 9 ? "9+" : badge.count}
+        </span>
+      )}
+    </Link>
+  );
 }
 
 function UserAvatar({ photoURL, displayName }: { photoURL?: string | null; displayName?: string }) {
@@ -148,7 +166,7 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
   );
 }
 
-export function PortalShell({ navItems, children }: PortalShellProps) {
+export function PortalShell({ navItems, children, notificationBadge }: PortalShellProps) {
   const pathname = usePathname();
   const { user, userDoc } = useAuth();
   const [rgeScore, setRgeScore] = useState<number>(0);
@@ -190,24 +208,30 @@ export function PortalShell({ navItems, children }: PortalShellProps) {
           })}
         </nav>
 
-        <ProfileDropdown
-          settingsHref={settingsHref}
-          photoURL={photoURL}
-          displayName={userDoc?.displayName}
-          prestige={prestige}
-        />
+        <div className="flex items-center gap-2">
+          {notificationBadge && <NotificationBell badge={notificationBadge} />}
+          <ProfileDropdown
+            settingsHref={settingsHref}
+            photoURL={photoURL}
+            displayName={userDoc?.displayName}
+            prestige={prestige}
+          />
+        </div>
       </header>
 
       {/* Mobile top bar */}
       <header className="flex md:hidden items-center justify-between border-b border-neutral-200 bg-white px-4 py-2 z-40">
         <Logo size={52} href="/" />
-        <ProfileDropdown
-          settingsHref={settingsHref}
-          photoURL={photoURL}
-          displayName={userDoc?.displayName}
-          prestige={prestige}
-          compact
-        />
+        <div className="flex items-center gap-1">
+          {notificationBadge && <NotificationBell badge={notificationBadge} />}
+          <ProfileDropdown
+            settingsHref={settingsHref}
+            photoURL={photoURL}
+            displayName={userDoc?.displayName}
+            prestige={prestige}
+            compact
+          />
+        </div>
       </header>
 
       <main

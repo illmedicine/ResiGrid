@@ -6,9 +6,10 @@ import {
   getSquareClient,
   getSquareClientForAccessToken,
   toMoneyCents,
+  SQUARE_SECRETS,
 } from "../lib/square";
 import { recordCompletedPayment } from "./recordPayment";
-import { notifyVoucherRecipient } from "../lib/mailer";
+import { notifyVoucherRecipient, SMTP_SECRETS } from "../lib/mailer";
 import type { UserDoc, VoucherDoc, SquareConnectionDoc } from "../types";
 
 const CLAIM_BASE_URL = process.env.CLAIM_BASE_URL ?? "https://resigrid.co/claim/";
@@ -34,7 +35,7 @@ interface CreateVoucherResponse {
 }
 
 export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherResponse>>(
-  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"], secrets: [...SQUARE_SECRETS, ...SMTP_SECRETS] },
   async (request) => {
     const senderId = request.auth?.uid;
     if (!senderId) {

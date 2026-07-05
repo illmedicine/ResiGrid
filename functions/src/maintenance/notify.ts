@@ -1,26 +1,42 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
-import type { MaintenanceRequestDoc, PropertyDoc } from "../types";
+import { sendEmail, templates, SMTP_SECRETS } from "../lib/mailer";
+import type { MaintenanceRequestDoc, PropertyDoc, UnitDoc, UserDoc } from "../types";
 
-// Notification delivery (email/SMS/push) is not wired up yet — this logs the
-// event so the integration point is obvious once a provider (e.g. SendGrid,
-// Twilio, FCM) is chosen.
 export const notifyOnMaintenanceRequest = onDocumentCreated(
-  "maintenanceRequests/{requestId}",
+  { document: "maintenanceRequests/{requestId}", secrets: [...SMTP_SECRETS] },
   async (event) => {
-    const request = event.data?.data() as MaintenanceRequestDoc | undefined;
-    if (!request) return;
+    const req = event.data?.data() as MaintenanceRequestDoc | undefined;
+    if (!req) return;
 
-    const propertySnap = await db.collection("properties").doc(request.propertyId).get();
+    const [propertySnap, unitSnap, pmSnap] = await Promise.all([
+      db.collection("properties").doc(req.propertyId).get(),
+      db.collection("units").doc(req.unitId).get(),
+      db.collection("users").doc(
+        (await db.collection("properties").doc(req.propertyId).get()).data()?.ownerId ?? "__",
+      ).get(),
+    ]);
+
     const property = propertySnap.data() as PropertyDoc | undefined;
-    if (!property) return;
+    const unit = unitSnap.data() as UnitDoc | undefined;
+    const pm = pmSnap.data() as UserDoc | undefined;
 
-    logger.info("New maintenance request — notify property manager", {
-      ownerId: property.ownerId,
-      requestId: event.params.requestId,
-      category: request.category,
-      priority: request.priority,
+    if (!pm?.email) return;
+
+    const unitInfo = [
+      unit?.unitNumber ? `Unit ${unit.unitNumber}` : null,
+      property?.name ?? property?.addressLine1,
+    ].filter(Boolean).join(" · ");
+
+    const tmpl = templates.maintenanceRequest({
+      tenantName: (await db.collection("users").doc(req.tenantId).get()).data()?.displayName ?? "Your tenant",
+      category: req.category,
+      item: req.item,
+      description: req.description,
+      priority: req.priority,
+      unitInfo,
     });
+
+    await sendEmail(pm.email, tmpl.subject, tmpl.html, tmpl.text);
   },
 );

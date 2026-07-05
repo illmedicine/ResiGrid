@@ -1,10 +1,12 @@
 import { randomUUID } from "crypto";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions/v2";
 import { db } from "../lib/firebaseAdmin";
 import {
   getSquareClient,
   getSquareLocationId,
   toMoneyCents,
+  SQUARE_SECRETS,
 } from "../lib/square";
 import type { PMEntitlement, PMSubscriptionDoc, PMTier } from "../types";
 
@@ -29,16 +31,16 @@ function isValidTier(t: unknown): t is PMTier {
 interface CreatePMSubscriptionRequest {
   sourceId: string;
   tier: PMTier;
-  propertyName: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  zip: string;
-  unitCount: number;
+  propertyName?: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  unitCount?: number;
 }
 
 interface CreatePMSubscriptionResponse {
-  propertyId: string;
+  propertyId?: string;
   amountCharged: number;
 }
 
@@ -46,7 +48,7 @@ export const createPMSubscription = onCall<
   CreatePMSubscriptionRequest,
   Promise<CreatePMSubscriptionResponse>
 >(
-  { region: "us-central1", cors: true },
+  { region: "us-central1", cors: true, secrets: [...SQUARE_SECRETS] },
   async (request) => {
     const pmId = request.auth?.uid;
     if (!pmId) {
@@ -56,17 +58,15 @@ export const createPMSubscription = onCall<
     const { sourceId, tier, propertyName, addressLine1, city, state, zip, unitCount } =
       request.data;
 
-    if (!sourceId || !propertyName || !addressLine1 || !city || !state || !zip) {
-      throw new HttpsError("invalid-argument", "All property fields are required.");
+    if (!sourceId) {
+      throw new HttpsError("invalid-argument", "Missing payment source.");
     }
     if (!isValidTier(tier)) {
       throw new HttpsError("invalid-argument", "Invalid tier. Choose starter, growth, or mega.");
     }
-    if (!unitCount || unitCount < 1) {
-      throw new HttpsError("invalid-argument", "At least 1 unit is required.");
-    }
 
-    const units = Math.max(1, Math.floor(unitCount));
+    const hasProperty = !!(propertyName && addressLine1 && city && state && zip);
+    const units = Math.max(1, Math.floor(unitCount ?? 1));
     const feeUsd = TIER_FEES[tier];
     const now = Date.now();
 
@@ -86,7 +86,7 @@ export const createPMSubscription = onCall<
       const customerResult = await client.customersApi.createCustomer({
         idempotencyKey: `customer-${pmId}`,
         emailAddress: userData?.email,
-        givenName: userData?.displayName ?? propertyName,
+        givenName: userData?.displayName ?? propertyName ?? "Property Manager",
         referenceId: pmId,
       });
       squareCustomerId = customerResult.result.customer?.id;
@@ -95,7 +95,7 @@ export const createPMSubscription = onCall<
       if (squareCustomerId) {
         try {
           const cardResult = await client.cardsApi.createCard({
-            idempotencyKey: `card-${pmId}-${now}`,
+            idempotencyKey: randomUUID(),
             sourceId,
             card: { customerId: squareCustomerId },
           });
@@ -113,39 +113,43 @@ export const createPMSubscription = onCall<
         amountMoney: toMoneyCents(feeUsd),
         locationId: getSquareLocationId(),
         customerId: squareCustomerId,
-        note: `ResiGrid ${TIER_NAMES[tier]} annual onboarding — ${propertyName}`,
+        note: `ResiGrid ${TIER_NAMES[tier]} annual onboarding${propertyName ? ` — ${propertyName}` : ""}`,
       });
       const id = result.result.payment?.id;
       if (!id) throw new Error("Square did not return a payment ID.");
       squarePaymentId = id;
     } catch (err) {
+      logger.error("createPMSubscription payment step failed", err);
       throw new HttpsError(
         "aborted",
         err instanceof Error ? err.message : "Card was declined.",
       );
     }
 
-    // ── Create first property doc ─────────────────────────────────────
-    const propertyRef = db.collection("properties").doc();
-
-    await propertyRef.set({
-      id: propertyRef.id,
-      ownerId: pmId,
-      name: propertyName,
-      addressLine1,
-      city,
-      state,
-      zip,
-      photos: [],
-      amenities: [],
-      unitIds: [],
-      createdAt: now,
-    });
+    // ── Optionally create a property doc ─────────────────────────────
+    let newPropertyId: string | undefined;
+    if (hasProperty) {
+      const propertyRef = db.collection("properties").doc();
+      await propertyRef.set({
+        id: propertyRef.id,
+        ownerId: pmId,
+        name: propertyName,
+        addressLine1,
+        city,
+        state,
+        zip,
+        photos: [],
+        amenities: [],
+        unitIds: [],
+        createdAt: now,
+      });
+      newPropertyId = propertyRef.id;
+    }
 
     // ── Upsert pmSubscriptions doc with tier + tierExpiresAt ──────────
     const entitlement: PMEntitlement = {
-      propertyId: propertyRef.id,
-      address: `${addressLine1}, ${city}, ${state} ${zip}`,
+      propertyId: newPropertyId ?? "",
+      address: hasProperty ? `${addressLine1}, ${city}, ${state} ${zip}` : "",
       paidUnits: units,
       squarePaymentId,
       amountPaid: feeUsd,
@@ -182,6 +186,6 @@ export const createPMSubscription = onCall<
       await subRef.set(sub);
     }
 
-    return { propertyId: propertyRef.id, amountCharged: feeUsd };
+    return { propertyId: newPropertyId, amountCharged: feeUsd };
   },
 );

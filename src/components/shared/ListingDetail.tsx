@@ -149,7 +149,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         listingId: listing.id,
         pmId: listing.ownerId,
         type: "interest",
-        message: interestMessage.trim() || undefined,
+        ...(interestMessage.trim() ? { message: interestMessage.trim() } : {}),
         createdAt: Date.now(),
         status: "pending",
       } as Omit<TenantInterestDoc, "id">);
@@ -177,7 +177,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         listingId: listing.id,
         pmId: listing.ownerId,
         type: "visit",
-        message: visitNote.trim() || undefined,
+        ...(visitNote.trim() ? { message: visitNote.trim() } : {}),
         preferredDate: new Date(visitDate).getTime(),
         createdAt: Date.now(),
         status: "pending",

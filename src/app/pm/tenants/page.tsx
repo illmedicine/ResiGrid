@@ -13,7 +13,7 @@ import {
   startAfter,
   where,
 } from "firebase/firestore";
-import { FileText, Search, Users } from "lucide-react";
+import { FileText, Home, Search, Users } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { leaseTermsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
@@ -21,9 +21,10 @@ import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
 import { useTenantRowStats } from "@/lib/hooks/useTenantRowStats";
 import { computeTenantMood } from "@/lib/tenants/mood";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import type { LeaseTermsDoc, UnitDoc, UserDoc } from "@/lib/types/models";
+import type { LeaseTermsDoc, PropertyDoc, UnitDoc, UserDoc } from "@/lib/types/models";
 
 const PAGE_SIZE = 25;
 
@@ -42,7 +43,15 @@ export default function PmTenantsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState("");
 
-  const propertiesById = Object.fromEntries(properties.map((p) => [p.id, p.name]));
+  const propertiesById = Object.fromEntries(properties.map((p) => [p.id, p]));
+
+  // How many loaded leases belong to the same tenant — surfaced as a badge so
+  // a PM can immediately see a tenant renting across multiple properties.
+  const leaseCountByTenant: Record<string, number> = {};
+  for (const l of leases) {
+    if (!l.tenantId) continue;
+    leaseCountByTenant[l.tenantId] = (leaseCountByTenant[l.tenantId] ?? 0) + 1;
+  }
 
   async function loadPage(after: QueryDocumentSnapshot<DocumentData> | null) {
     if (!queryId) return;
@@ -107,7 +116,7 @@ export default function PmTenantsPage() {
   const filtered = term
     ? leases.filter((l) => {
         const name = names[l.tenantId ?? ""]?.toLowerCase() ?? "";
-        const propertyName = propertiesById[l.propertyId]?.toLowerCase() ?? "";
+        const propertyName = propertiesById[l.propertyId]?.name?.toLowerCase() ?? "";
         const unitNumber = units[l.unitId]?.unitNumber?.toLowerCase() ?? "";
         return (
           name.includes(term) ||
@@ -161,8 +170,9 @@ export default function PmTenantsPage() {
               key={lease.id}
               lease={lease}
               tenantName={lease.tenantId ? names[lease.tenantId] : undefined}
-              propertyName={propertiesById[lease.propertyId]}
+              property={propertiesById[lease.propertyId]}
               unit={units[lease.unitId]}
+              leaseCount={lease.tenantId ? leaseCountByTenant[lease.tenantId] ?? 1 : 1}
             />
           ))}
         </div>
@@ -180,13 +190,15 @@ export default function PmTenantsPage() {
 function TenantDashboardRow({
   lease,
   tenantName,
-  propertyName,
+  property,
   unit,
+  leaseCount,
 }: {
   lease: LeaseTermsDoc;
   tenantName?: string;
-  propertyName?: string;
+  property?: PropertyDoc;
   unit?: UnitDoc;
+  leaseCount: number;
 }) {
   const stats = useTenantRowStats(lease.tenantId ?? "", lease.pmId);
 
@@ -203,19 +215,43 @@ function TenantDashboardRow({
     ? formatTenure(Date.now() - stats.tenantCreatedAt)
     : "—";
 
+  // +1 for the lease itself — a signed tenant always has at least their lease
+  // on file, even before any separate uploads or applications.
+  const docsTotal = stats.loading ? null : stats.docsSubmitted + 1;
+  const photo = property?.photos?.[0];
+
   return (
-    <Card className="p-3">
-      <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-0">
-        <span title={label} className="text-2xl leading-none shrink-0">
-          {emoji}
-        </span>
+    <Card className="overflow-hidden p-0">
+      <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-3 pl-0">
+        {/* Property thumbnail banner */}
+        <div className="relative h-16 w-24 shrink-0 overflow-hidden bg-navy-900/5">
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Home className="h-5 w-5 text-navy-900/20" />
+            </div>
+          )}
+          <span
+            title={label}
+            className="absolute bottom-0.5 right-0.5 text-lg leading-none drop-shadow"
+          >
+            {emoji}
+          </span>
+        </div>
 
         <div className="min-w-[140px] flex-1">
-          <p className="text-sm font-semibold text-navy-900">
-            {tenantName ?? lease.tenantId ?? "—"}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold text-navy-900">
+              {tenantName ?? lease.tenantId ?? "—"}
+            </p>
+            {leaseCount > 1 && (
+              <Badge tone="orange">{leaseCount} properties</Badge>
+            )}
+          </div>
           <p className="text-xs text-neutral-500">
-            {propertyName ?? "—"}
+            {property?.name ?? "—"}
             {unit ? ` · Unit ${unit.unitNumber}` : ""}
           </p>
         </div>
@@ -227,12 +263,12 @@ function TenantDashboardRow({
         />
         <Stat
           label="Docs"
-          value={stats.loading ? "…" : String(stats.docsSubmitted)}
+          value={docsTotal == null ? "…" : String(docsTotal)}
           icon={FileText}
         />
         <Stat
           label="RGE score"
-          value={stats.loading ? "…" : stats.score != null ? `${stats.score}%` : "—"}
+          value={stats.loading ? "…" : stats.score != null ? String(stats.score) : "—"}
         />
 
         <div className="ml-auto flex gap-2 shrink-0">

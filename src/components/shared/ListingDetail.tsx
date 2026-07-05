@@ -20,7 +20,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { db, storage } from "@/lib/firebase/config";
-import { applicationsCol, tenantInterestsCol } from "@/lib/firebase/firestore";
+import {
+  applicationsCol,
+  messageThreadsCol,
+  tenantInterestsCol,
+  threadMessagesCol,
+} from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -37,7 +42,6 @@ export function ListingDetail({ listingId }: { listingId: string }) {
   const [myInterest, setMyInterest] = useState<TenantInterestDoc | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [visitMode, setVisitMode] = useState(false);
   const [interestMessage, setInterestMessage] = useState("");
   const [visitDate, setVisitDate] = useState("");
   const [visitNote, setVisitNote] = useState("");
@@ -109,6 +113,31 @@ export function ListingDetail({ listingId }: { listingId: string }) {
     }).catch(() => setAppFormLoading(false));
   }, [applyMode, listing?.applicationFormId]);
 
+  async function notifyPM(content: string) {
+    if (!user || !listing?.ownerId) return;
+    const pmId = listing.ownerId;
+    const threadId = [user.uid, pmId].sort().join("_");
+    const threadRef = doc(messageThreadsCol(), threadId);
+    await setDoc(
+      threadRef,
+      {
+        id: threadId,
+        participantIds: [user.uid, pmId],
+        lastMessageAt: Date.now(),
+        lastMessageSnippet: content.slice(0, 80),
+      },
+      { merge: true },
+    );
+    await addDoc(threadMessagesCol(threadId), {
+      id: "",
+      threadId,
+      senderId: user.uid,
+      content,
+      createdAt: Date.now(),
+      readBy: [user.uid],
+    });
+  }
+
   async function handleExpressInterest() {
     if (!user || !listing || !listing.ownerId) return;
     setWorking(true);
@@ -124,6 +153,11 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         createdAt: Date.now(),
         status: "pending",
       } as Omit<TenantInterestDoc, "id">);
+      await notifyPM(
+        `👋 I'm interested in "${listing.title}".${
+          interestMessage.trim() ? ` ${interestMessage.trim()}` : ""
+        }`,
+      );
       setInterestMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send interest");
@@ -148,7 +182,11 @@ export function ListingDetail({ listingId }: { listingId: string }) {
         createdAt: Date.now(),
         status: "pending",
       } as Omit<TenantInterestDoc, "id">);
-      setVisitMode(false);
+      await notifyPM(
+        `📅 I'd like to schedule a visit for "${listing.title}" on ${new Date(
+          visitDate,
+        ).toLocaleDateString()}.${visitNote.trim() ? ` ${visitNote.trim()}` : ""}`,
+      );
       setVisitDate("");
       setVisitNote("");
     } catch (err) {
@@ -388,45 +426,7 @@ export function ListingDetail({ listingId }: { listingId: string }) {
             </Button>
           </CardContent>
         </Card>
-      ) : listing.applicationFormId && !applyMode ? (
-        /* Listing has an application form — show Apply Now CTA */
-        <Card className="border-orange-200 bg-orange-50 p-5">
-          <CardContent className="flex flex-col gap-3 p-0">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📋</span>
-              <p className="text-sm font-semibold text-navy-900">This property is accepting applications</p>
-            </div>
-            <p className="text-xs text-neutral-600">
-              The property manager has set up a screening process. Apply now and they&apos;ll
-              review your RGE Trust Profile and application details.
-            </p>
-            <Button size="sm" onClick={() => setApplyMode(true)}>
-              Apply Now
-            </Button>
-            <button
-              type="button"
-              onClick={() => setVisitMode(true)}
-              className="text-xs text-neutral-500 hover:text-orange-600 hover:underline text-left"
-            >
-              Prefer to visit first? Schedule a showing →
-            </button>
-            {visitMode && (
-              <div className="flex flex-col gap-2 border-t border-orange-200 pt-3">
-                <Input
-                  type="date"
-                  label="Preferred visit date"
-                  value={visitDate}
-                  onChange={(e) => setVisitDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
-                />
-                <Button size="sm" variant="outline" onClick={handleScheduleVisit} disabled={working || !visitDate}>
-                  <CalendarCheck className="h-3.5 w-3.5" /> Request visit
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : listing.applicationFormId && applyMode ? (
+      ) : applyMode ? (
         /* Inline application form */
         <Card className="p-5">
           <CardContent className="flex flex-col gap-4 p-0">
@@ -589,10 +589,34 @@ export function ListingDetail({ listingId }: { listingId: string }) {
           </CardContent>
         </Card>
       ) : (
-        /* Main tenant CTAs: express interest or schedule visit */
+        /* Main tenant CTAs: apply (if available), express interest, schedule visit */
         <div className="flex flex-col gap-3">
+          {listing.applicationFormId && (
+            <Card className="border-orange-200 bg-orange-50 p-4">
+              <CardContent className="flex items-center justify-between gap-3 p-0 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <div>
+                    <p className="text-sm font-semibold text-navy-900">
+                      This property is accepting applications
+                    </p>
+                    <p className="text-xs text-neutral-600">
+                      Apply now and the property manager will review your RGE Trust Profile
+                      and application details.
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => setApplyMode(true)}>
+                  Apply Now
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <p className="text-xs font-medium text-navy-900">
-            How would you like to proceed?
+            {listing.applicationFormId
+              ? "Not ready to apply yet?"
+              : "How would you like to proceed?"}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             {/* Express Interest */}
@@ -655,7 +679,9 @@ export function ListingDetail({ listingId }: { listingId: string }) {
           </div>
 
           <p className="text-xs text-center text-neutral-400">
-            Applications open after the property manager reviews your interest and sends an invitation.
+            {listing.applicationFormId
+              ? "You can also just express interest or schedule a visit first — no application required yet."
+              : "Applications open after the property manager reviews your interest and sends an invitation."}
           </p>
         </div>
       )}

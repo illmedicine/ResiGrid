@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
-import { usePMSubscription, calcTrialStatus } from "@/lib/hooks/usePMSubscription";
+import { usePMSubscription } from "@/lib/hooks/usePMSubscription";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -17,13 +17,13 @@ const NEXT_TIER: Record<string, { name: string; href: string }> = {
 };
 
 export default function PmPropertiesPage() {
-  const { user, userDoc } = useAuth();
+  const { user } = useAuth();
   const { properties, loading } = useOwnerProperties(user?.uid);
-  const { isActive, tierConfig } = usePMSubscription(user?.uid);
-  const trial = calcTrialStatus(userDoc?.createdAt);
+  const { tierConfig } = usePMSubscription(user?.uid);
   const [showForm, setShowForm] = useState(false);
 
-  const canAddFree = isActive || trial.inTrial;
+  // Portal access pausing is disabled — PMs can always add properties.
+  const canAddFree = true;
 
   const maxProperties = tierConfig?.maxProperties ?? null; // null = unlimited (Mega)
   const atPropertyLimit = maxProperties !== null && properties.length >= maxProperties;

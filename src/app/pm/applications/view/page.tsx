@@ -47,11 +47,18 @@ function PmApplicationViewContent() {
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
-    return onSnapshot(doc(db, "applications", id), (snap) => {
-      if (snap.exists()) setApplication({ ...snap.data(), id: snap.id } as ApplicationDoc);
-      else setApplication(null);
-      setLoading(false);
-    });
+    return onSnapshot(
+      doc(db, "applications", id),
+      (snap) => {
+        if (snap.exists()) setApplication({ ...snap.data(), id: snap.id } as ApplicationDoc);
+        else setApplication(null);
+        setLoading(false);
+      },
+      () => {
+        setApplication(null);
+        setLoading(false);
+      },
+    );
   }, [id]);
 
   useEffect(() => {

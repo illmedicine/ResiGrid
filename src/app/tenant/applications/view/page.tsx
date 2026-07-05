@@ -53,12 +53,20 @@ function TenantApplicationViewContent() {
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
-    return onSnapshot(doc(db, "applications", id), (snap) => {
-      if (!snap.exists()) { setApplication(null); setLoading(false); return; }
-      const data = { ...snap.data(), id: snap.id } as ApplicationDoc;
-      setApplication(data);
-      setLoading(false);
-    });
+    return onSnapshot(
+      doc(db, "applications", id),
+      (snap) => {
+        if (!snap.exists()) { setApplication(null); setLoading(false); return; }
+        const data = { ...snap.data(), id: snap.id } as ApplicationDoc;
+        setApplication(data);
+        setLoading(false);
+      },
+      () => {
+        setApplication(null);
+        setForbidden(true);
+        setLoading(false);
+      },
+    );
   }, [id]);
 
   // Verify ownership + load supporting data

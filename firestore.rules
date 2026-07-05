@@ -160,6 +160,8 @@ service cloud.firestore {
     match /maintenanceRequests/{requestId} {
       allow read: if isSignedIn() && (
         resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId) ||
         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid ||
         canAccessProperty(
           get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId,

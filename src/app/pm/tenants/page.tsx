@@ -2,224 +2,140 @@
 
 import { useEffect, useState } from "react";
 import {
-  addDoc,
-  deleteDoc,
+  type DocumentData,
+  type QueryDocumentSnapshot,
   doc,
-  onSnapshot,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
   query,
-  setDoc,
-  updateDoc,
+  startAfter,
   where,
 } from "firebase/firestore";
-import { CheckCircle2, Search, Trash2, UserPlus } from "lucide-react";
+import { FileText, Search, Users } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import {
-  messageThreadsCol,
-  threadMessagesCol,
-  unitsCol,
-} from "@/lib/firebase/firestore";
+import { leaseTermsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
-import { useOwnerLeases } from "@/lib/hooks/useOwnerLeases";
+import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
-import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
-import { TenantSearchInput } from "@/components/pm/TenantSearchInput";
-import { Badge } from "@/components/ui/Badge";
+import { useTenantRowStats } from "@/lib/hooks/useTenantRowStats";
+import { computeTenantMood } from "@/lib/tenants/mood";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Select } from "@/components/ui/Select";
-import type { LeaseDoc, UnitDoc, UserDoc } from "@/lib/types/models";
+import type { LeaseTermsDoc, UnitDoc, UserDoc } from "@/lib/types/models";
+
+const PAGE_SIZE = 25;
 
 export default function PmTenantsPage() {
   const { user } = useAuth();
-  const { leases, loading } = useOwnerLeases(user?.uid);
+  const { effectiveId } = useEffectivePMId();
   const { properties } = useOwnerProperties(user?.uid);
-  const [assignMode, setAssignMode] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<UserDoc | null>(null);
-  const [selectedPropertyId, setSelectedPropertyId] = useState("");
-  const [vacantUnits, setVacantUnits] = useState<UnitDoc[]>([]);
-  const [selectedUnitId, setSelectedUnitId] = useState("");
-  const [assigning, setAssigning] = useState(false);
-  const [assignError, setAssignError] = useState<string | null>(null);
-  const [assignSuccess, setAssignSuccess] = useState(false);
-  const [tenantSearch, setTenantSearch] = useState("");
+  const queryId = user ? (effectiveId ?? user.uid) : undefined;
 
-  const tenantIds = Array.from(new Set(leases.map((l) => l.tenantId)));
+  const [leases, setLeases] = useState<LeaseTermsDoc[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [units, setUnits] = useState<Record<string, UnitDoc>>({});
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState("");
 
-  // Load vacant units when PM selects a property in assign mode
-  useEffect(() => {
-    if (!selectedPropertyId) {
-      setVacantUnits([]);
-      return;
-    }
-    const q = query(
-      unitsCol(),
-      where("propertyId", "==", selectedPropertyId),
-      where("status", "==", "vacant"),
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setVacantUnits(snap.docs.map((d) => ({ ...d.data(), id: d.id } as UnitDoc)));
+  const propertiesById = Object.fromEntries(properties.map((p) => [p.id, p.name]));
+
+  async function loadPage(after: QueryDocumentSnapshot<DocumentData> | null) {
+    if (!queryId) return;
+    const constraints = [
+      where("pmId", "==", queryId),
+      where("status", "==", "fully_signed" as const),
+      orderBy("createdAt", "desc"),
+      limit(PAGE_SIZE),
+      ...(after ? [startAfter(after)] : []),
+    ];
+    const snap = await getDocs(query(leaseTermsCol(), ...constraints));
+    const newLeases = snap.docs.map((d) => ({ ...d.data(), id: d.id }) as LeaseTermsDoc);
+
+    const [userDocs, unitDocs] = await Promise.all([
+      Promise.all(
+        newLeases.map((l) =>
+          l.tenantId ? getDoc(doc(db, "users", l.tenantId)) : Promise.resolve(null),
+        ),
+      ),
+      Promise.all(newLeases.map((l) => getDoc(doc(db, "units", l.unitId)))),
+    ]);
+
+    setNames((prev) => {
+      const next = { ...prev };
+      newLeases.forEach((l, i) => {
+        const snap = userDocs[i];
+        if (l.tenantId && snap?.exists()) next[l.tenantId] = (snap.data() as UserDoc).displayName;
+      });
+      return next;
     });
-    return unsub;
-  }, [selectedPropertyId]);
+    setUnits((prev) => {
+      const next = { ...prev };
+      newLeases.forEach((l, i) => {
+        const snap = unitDocs[i];
+        if (snap?.exists()) next[l.unitId] = { ...(snap.data() as UnitDoc), id: snap.id };
+      });
+      return next;
+    });
 
-  async function handleAssign() {
-    if (!user || !selectedTenant || !selectedUnitId) return;
-    setAssigning(true);
-    setAssignError(null);
+    setLeases((prev) => (after ? [...prev, ...newLeases] : newLeases));
+    setCursor(snap.docs[snap.docs.length - 1] ?? null);
+    setHasMore(snap.docs.length === PAGE_SIZE);
+  }
+
+  useEffect(() => {
+    if (!queryId) return;
+    setLoading(true);
+    loadPage(null).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryId]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
     try {
-      // Update unit with tenant
-      await updateDoc(doc(db, "units", selectedUnitId), {
-        currentTenantId: selectedTenant.uid,
-        status: "occupied",
-      });
-
-      // Create a message thread and send notification
-      const threadRef = doc(messageThreadsCol());
-      await setDoc(threadRef, {
-        id: threadRef.id,
-        participantIds: [user.uid, selectedTenant.uid],
-        propertyId: selectedPropertyId,
-        leaseId: undefined,
-        lastMessageAt: Date.now(),
-        lastMessageSnippet: "You have been assigned to a unit",
-      });
-      const unit = vacantUnits.find((u) => u.id === selectedUnitId);
-      const property = properties.find((p) => p.id === selectedPropertyId);
-      await addDoc(threadMessagesCol(threadRef.id), {
-        id: "",
-        threadId: threadRef.id,
-        senderId: user.uid,
-        content:
-          `Welcome! You have been assigned to Unit ${unit?.unitNumber ?? selectedUnitId}` +
-          (property ? ` at ${property.name}` : "") +
-          `. You can now access your tenant portal to pay rent, submit maintenance requests, ` +
-          `view your lease, and message your property manager directly.`,
-        createdAt: Date.now(),
-        readBy: [user.uid],
-      });
-
-      setAssignSuccess(true);
-      setAssignMode(false);
-      setSelectedTenant(null);
-      setSelectedPropertyId("");
-      setSelectedUnitId("");
-    } catch (err) {
-      setAssignError(
-        err instanceof Error ? err.message : "Failed to assign tenant",
-      );
+      await loadPage(cursor);
     } finally {
-      setAssigning(false);
+      setLoadingMore(false);
     }
   }
 
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? leases.filter((l) => {
+        const name = names[l.tenantId ?? ""]?.toLowerCase() ?? "";
+        const propertyName = propertiesById[l.propertyId]?.toLowerCase() ?? "";
+        const unitNumber = units[l.unitId]?.unitNumber?.toLowerCase() ?? "";
+        return (
+          name.includes(term) ||
+          propertyName.includes(term) ||
+          unitNumber.includes(term) ||
+          (l.tenantId ?? "").toLowerCase().includes(term)
+        );
+      })
+    : leases;
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-navy-900">Tenants</h1>
-          <p className="text-sm text-neutral-600">
-            Manage tenants across your properties and assign them to units.
-          </p>
-        </div>
-        <Button onClick={() => { setAssignMode((v) => !v); setAssignSuccess(false); }} size="sm">
-          <UserPlus className="h-4 w-4" />
-          Assign tenant to unit
-        </Button>
+      <div>
+        <h1 className="text-xl font-bold text-navy-900">Tenants</h1>
+        <p className="text-sm text-neutral-600">
+          Every tenant with a fully signed lease, across all your properties — appears
+          here automatically, no manual assignment needed.
+        </p>
       </div>
 
-      {assignSuccess && (
-        <Card className="border-green-200 bg-green-50 p-4">
-          <CardContent className="flex items-center gap-2 p-0 text-sm text-green-800">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Tenant assigned! They have been notified via platform message.
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Assign tenant panel */}
-      {assignMode && (
-        <Card className="p-5">
-          <CardContent className="flex flex-col gap-4 p-0">
-            <h2 className="text-sm font-semibold text-navy-900">Assign a tenant to a unit</h2>
-
-            <TenantSearchInput
-              label="Search for registered tenant"
-              onSelect={(t) => setSelectedTenant(t)}
-            />
-
-            {selectedTenant && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Select
-                  label="Property"
-                  value={selectedPropertyId}
-                  onChange={(e) => {
-                    setSelectedPropertyId(e.target.value);
-                    setSelectedUnitId("");
-                  }}
-                >
-                  <option value="">Select property…</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </Select>
-
-                <Select
-                  label="Vacant unit"
-                  value={selectedUnitId}
-                  onChange={(e) => setSelectedUnitId(e.target.value)}
-                  disabled={!selectedPropertyId}
-                >
-                  <option value="">Select unit…</option>
-                  {vacantUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      Unit {u.unitNumber} — ${u.rent}/mo
-                    </option>
-                  ))}
-                  {selectedPropertyId && vacantUnits.length === 0 && (
-                    <option disabled value="">No vacant units</option>
-                  )}
-                </Select>
-              </div>
-            )}
-
-            {assignError && (
-              <p className="text-sm text-red-600">{assignError}</p>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleAssign}
-                disabled={assigning || !selectedTenant || !selectedUnitId}
-                size="sm"
-              >
-                {assigning ? "Assigning…" : "Confirm assignment"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setAssignMode(false);
-                  setSelectedTenant(null);
-                  setSelectedPropertyId("");
-                  setSelectedUnitId("");
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Existing tenants list with search */}
-      {!loading && tenantIds.length > 0 && (
+      {!loading && leases.length > 0 && (
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
-            placeholder="Filter by name or UID…"
-            value={tenantSearch}
-            onChange={(e) => setTenantSearch(e.target.value)}
+            placeholder="Search loaded tenants by name, property, or unit…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-neutral-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
           />
         </div>
@@ -227,123 +143,136 @@ export default function PmTenantsPage() {
 
       {loading ? (
         <p className="text-sm text-neutral-600">Loading…</p>
-      ) : tenantIds.length === 0 ? (
-        <Card className="p-5">
-          <CardContent className="p-0">
-            <p className="text-sm text-neutral-600">
-              No tenants yet. Use &quot;Assign tenant to unit&quot; to get started.
+      ) : leases.length === 0 ? (
+        <Card className="p-8">
+          <CardContent className="flex flex-col items-center gap-3 p-0 text-center">
+            <Users className="h-10 w-10 text-neutral-300" />
+            <p className="text-sm font-semibold text-navy-900">No tenants yet</p>
+            <p className="text-xs text-neutral-500">
+              Tenants show up here automatically once a lease is fully signed through
+              the application &amp; lease workflow.
             </p>
           </CardContent>
         </Card>
       ) : (
-        tenantIds.map((tenantId) => (
-          <TenantRow
-            key={tenantId}
-            tenantId={tenantId}
-            lease={leases.find((l) => l.tenantId === tenantId)!}
-            searchTerm={tenantSearch}
-          />
-        ))
+        <div className="flex flex-col gap-2">
+          {filtered.map((lease) => (
+            <TenantDashboardRow
+              key={lease.id}
+              lease={lease}
+              tenantName={lease.tenantId ? names[lease.tenantId] : undefined}
+              propertyName={propertiesById[lease.propertyId]}
+              unit={units[lease.unitId]}
+            />
+          ))}
+        </div>
+      )}
+
+      {hasMore && !term && (
+        <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore} className="w-fit">
+          {loadingMore ? "Loading…" : "Load more tenants"}
+        </Button>
       )}
     </div>
   );
 }
 
-function TenantRow({
-  tenantId,
+function TenantDashboardRow({
   lease,
-  searchTerm,
+  tenantName,
+  propertyName,
+  unit,
 }: {
-  tenantId: string;
-  lease: LeaseDoc;
-  searchTerm: string;
+  lease: LeaseTermsDoc;
+  tenantName?: string;
+  propertyName?: string;
+  unit?: UnitDoc;
 }) {
-  const name = useUserDisplayName(tenantId);
-  const [removing, setRemoving] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const stats = useTenantRowStats(lease.tenantId ?? "", lease.pmId);
 
-  if (
-    searchTerm &&
-    !name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    !tenantId.toLowerCase().includes(searchTerm.toLowerCase())
-  ) {
-    return null;
-  }
+  const { emoji, label } = computeTenantMood({
+    leaseStartDate: lease.startDate,
+    lateFeeDays: lease.lateFeeDays,
+    tenantSignedAt: lease.tenantSignedAt,
+    pmSignedAt: lease.pmSignedAt,
+    lastCompletedPaymentAt: stats.lastCompletedPaymentAt ?? undefined,
+    hasUrgentOpenMaintenance: stats.hasUrgentOpenMaintenance,
+  });
 
-  async function handleRemove() {
-    setRemoving(true);
-    setRemoveError(null);
-    try {
-      // Reset the unit back to vacant if the lease references one
-      if (lease.unitId) {
-        await updateDoc(doc(db, "units", lease.unitId), {
-          currentTenantId: null,
-          currentLeaseId: null,
-          status: "vacant",
-        });
-      }
-      await deleteDoc(doc(db, "leases", lease.id));
-    } catch (err) {
-      setRemoveError(err instanceof Error ? err.message : "Failed to remove");
-      setRemoving(false);
-      setConfirmRemove(false);
-    }
-  }
+  const tenureLabel = stats.tenantCreatedAt
+    ? formatTenure(Date.now() - stats.tenantCreatedAt)
+    : "—";
 
   return (
-    <Card className="p-4">
-      <CardContent className="flex flex-col gap-2 p-0">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold text-navy-900">{name ?? tenantId}</p>
-            <p className="font-mono text-[10px] text-neutral-400">UID: {tenantId}</p>
-            <p className="text-xs text-neutral-600 mt-0.5">
-              ${lease.rentAmount.toLocaleString()}/mo · due day {lease.dueDay}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button href="/pm/messages" size="sm" variant="outline">
-              Message
-            </Button>
-            <Button href="/pm/leases/new" size="sm" variant="outline">
-              New lease
-            </Button>
-            {!confirmRemove ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => setConfirmRemove(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-red-600 font-medium">Remove?</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-red-600 border-red-300 hover:bg-red-50"
-                  onClick={handleRemove}
-                  disabled={removing}
-                >
-                  {removing ? "Removing…" : "Yes"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setConfirmRemove(false)}
-                  disabled={removing}
-                >
-                  No
-                </Button>
-              </div>
-            )}
-          </div>
+    <Card className="p-3">
+      <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-0">
+        <span title={label} className="text-2xl leading-none shrink-0">
+          {emoji}
+        </span>
+
+        <div className="min-w-[140px] flex-1">
+          <p className="text-sm font-semibold text-navy-900">
+            {tenantName ?? lease.tenantId ?? "—"}
+          </p>
+          <p className="text-xs text-neutral-500">
+            {propertyName ?? "—"}
+            {unit ? ` · Unit ${unit.unitNumber}` : ""}
+          </p>
         </div>
-        {removeError && <p className="text-xs text-red-600">{removeError}</p>}
+
+        <Stat label="On platform" value={tenureLabel} />
+        <Stat
+          label="Total paid"
+          value={stats.loading ? "…" : `$${stats.totalPaid.toLocaleString()}`}
+        />
+        <Stat
+          label="Docs"
+          value={stats.loading ? "…" : String(stats.docsSubmitted)}
+          icon={FileText}
+        />
+        <Stat
+          label="RGE score"
+          value={stats.loading ? "…" : stats.score != null ? `${stats.score}%` : "—"}
+        />
+
+        <div className="ml-auto flex gap-2 shrink-0">
+          <Button href="/pm/messages" size="sm" variant="outline">
+            Message
+          </Button>
+          <Button href={`/pm/leases/view?id=${lease.id}`} size="sm" variant="outline">
+            View lease
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
+}
+
+function Stat({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon?: typeof FileText;
+}) {
+  return (
+    <div className="flex flex-col items-start">
+      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-400">
+        {Icon && <Icon className="h-3 w-3" />}
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-navy-900">{value}</span>
+    </div>
+  );
+}
+
+function formatTenure(ms: number): string {
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  if (days < 30) return `${days}d`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  return months > 0 ? `${years}y ${months}mo` : `${years}y`;
 }

@@ -69,6 +69,7 @@ function LeaseViewContent() {
         updateDoc(doc(db, "units", data.unitId), {
           status: "occupied",
           currentTenantId: data.tenantId,
+          currentLeaseId: id,
         });
       }
     });
@@ -118,6 +119,7 @@ function LeaseViewContent() {
       await updateDoc(doc(db, "units", lease.unitId), {
         status: "occupied",
         currentTenantId: lease.tenantId,
+        currentLeaseId: id,
       });
     }
     setCountersigning(false);

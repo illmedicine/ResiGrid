@@ -84,6 +84,15 @@
       "collectionGroup": "leaseTerms",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pmId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leaseTerms",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "tenantId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]

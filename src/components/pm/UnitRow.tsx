@@ -4,25 +4,15 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc, arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Camera, Edit2, ExternalLink, Trash2, UserMinus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { leasesCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhotoUpload } from "@/components/pm/PhotoUpload";
 import type { ListingDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
-
-const leaseSchema = z.object({
-  tenantId: z.string().min(1, "Tenant UID is required"),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  dueDay: z.coerce.number().min(1).max(28),
-});
-type LeaseFormInput = z.input<typeof leaseSchema>;
-type LeaseFormValues = z.output<typeof leaseSchema>;
 
 const editSchema = z.object({
   unitNumber: z.string().min(1),
@@ -39,7 +29,7 @@ export function UnitRow({ unit, property, activeListing }: {
   property: PropertyDoc;
   activeListing?: ListingDoc;
 }) {
-  const [mode, setMode] = useState<"none" | "assign" | "edit">("none");
+  const [mode, setMode] = useState<"none" | "edit">("none");
   const [deleting, setDeleting] = useState(false);
   const [removingTenant, setRemovingTenant] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -47,37 +37,10 @@ export function UnitRow({ unit, property, activeListing }: {
   const [unitPhotos, setUnitPhotos] = useState<string[]>(unit.photos ?? []);
   const [savingPhotos, setSavingPhotos] = useState(false);
 
-  const leaseForm = useForm<LeaseFormInput, unknown, LeaseFormValues>({ resolver: zodResolver(leaseSchema) });
   const editForm = useForm<EditInput, unknown, EditValues>({
     resolver: zodResolver(editSchema),
     defaultValues: { unitNumber: unit.unitNumber, beds: unit.beds, baths: unit.baths, rent: unit.rent, sqft: unit.sqft },
   });
-
-  async function onAssign(values: LeaseFormValues) {
-    setError(null);
-    try {
-      const leaseRef = await addDoc(leasesCol(), {
-        id: "",
-        unitId: unit.id,
-        tenantId: values.tenantId,
-        pmId: property.ownerId,
-        signedStatus: "unsigned",
-        startDate: new Date(values.startDate).getTime(),
-        endDate: new Date(values.endDate).getTime(),
-        rentAmount: unit.rent,
-        dueDay: values.dueDay,
-        createdAt: Date.now(),
-      });
-      await updateDoc(doc(db, "units", unit.id), {
-        status: "occupied",
-        currentTenantId: values.tenantId,
-        currentLeaseId: leaseRef.id,
-      });
-      setMode("none");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to assign tenant");
-    }
-  }
 
   async function onEdit(values: EditValues) {
     setError(null);
@@ -225,19 +188,16 @@ export function UnitRow({ unit, property, activeListing }: {
         {mode === "none" && (
           <div className="flex flex-wrap gap-2">
             {unit.status === "vacant" && (
-              <>
-                {activeListing ? (
-                  <Button size="sm" variant="outline" href="/pm/listings">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Manage listing
-                  </Button>
-                ) : (
-                  <Button size="sm" href={`/pm/listings/new?unitId=${unit.id}&propertyId=${property.id}`}>
-                    Publish listing
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={() => setMode("assign")}>Assign tenant</Button>
-              </>
+              activeListing ? (
+                <Button size="sm" variant="outline" href="/pm/listings">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Manage listing
+                </Button>
+              ) : (
+                <Button size="sm" href={`/pm/listings/new?unitId=${unit.id}&propertyId=${property.id}`}>
+                  Publish listing
+                </Button>
+              )
             )}
             {unit.status === "occupied" && (
               <Button size="sm" variant="outline" onClick={handleRemoveTenant} disabled={removingTenant}>
@@ -246,27 +206,6 @@ export function UnitRow({ unit, property, activeListing }: {
               </Button>
             )}
           </div>
-        )}
-
-        {/* Assign tenant */}
-        {mode === "assign" && (
-          <form onSubmit={leaseForm.handleSubmit(onAssign)} className="flex flex-col gap-3 border-t border-neutral-200 pt-3">
-            <Input
-              label="Tenant UID"
-              placeholder="Copy from the Tenants page or tenant profile"
-              {...leaseForm.register("tenantId")}
-              error={leaseForm.formState.errors.tenantId?.message}
-            />
-            <div className="grid grid-cols-3 gap-3">
-              <Input label="Start date" type="date" {...leaseForm.register("startDate")} error={leaseForm.formState.errors.startDate?.message} />
-              <Input label="End date" type="date" {...leaseForm.register("endDate")} error={leaseForm.formState.errors.endDate?.message} />
-              <Input label="Due day" type="number" min={1} max={28} {...leaseForm.register("dueDay")} error={leaseForm.formState.errors.dueDay?.message} />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" size="sm">Create lease</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setMode("none")}>Cancel</Button>
-            </div>
-          </form>
         )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}

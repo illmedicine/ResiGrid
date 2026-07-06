@@ -10,12 +10,14 @@ import { CheckCircle2, Home, User } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { functions } from "@/lib/firebase/config";
 import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
+import { useCurrentRentInvoice } from "@/lib/hooks/useCurrentRentInvoice";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
 import type { UserDoc } from "@/lib/types/models";
 import type { SquareCard } from "@/lib/square/client";
 import { SquareCardField } from "./SquareCardField";
+import { DaysDueCounter } from "./DaysDueCounter";
 
 const leaseSchema = z.object({
   amount: z.coerce.number().positive("Enter an amount greater than 0"),
@@ -38,6 +40,10 @@ export function PayRentForm() {
   const myProperty = selectedLease?.property ?? null;
   const myUnit = selectedLease?.unit ?? null;
   const [pmUser, setPmUser] = useState<UserDoc | null>(null);
+  const { invoice, dueDate: invoiceDueDate, paid: invoicePaid } = useCurrentRentInvoice(
+    signedLease?.id,
+    signedLease?.startDate,
+  );
 
   // Payment state
   const [card, setCard] = useState<SquareCard | null>(null);
@@ -81,6 +87,7 @@ export function PayRentForm() {
         pmId: signedLease.pmId,
         sourceId: tokenResult.token,
         leaseTermsId: signedLease.id,
+        ...(invoice ? { invoiceId: invoice.id } : {}),
       });
       setResult(res.data);
     } catch (err) {
@@ -142,10 +149,13 @@ export function PayRentForm() {
         <>
           {/* Context card */}
           <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-navy-900">
-              <Home className="h-4 w-4 text-orange-500" />
-              Paying rent for: {myProperty?.name ?? "—"}
-              {myUnit ? ` · Unit ${myUnit.unitNumber}` : ""}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-sm font-semibold text-navy-900">
+                <Home className="h-4 w-4 text-orange-500" />
+                Paying rent for: {myProperty?.name ?? "—"}
+                {myUnit ? ` · Unit ${myUnit.unitNumber}` : ""}
+              </div>
+              <DaysDueCounter dueDate={invoiceDueDate} paid={invoicePaid} />
             </div>
             {myProperty && (
               <p className="text-xs text-neutral-600">
@@ -160,7 +170,9 @@ export function PayRentForm() {
             )}
             <p className="text-xs text-neutral-500">
               Lease rent: <span className="font-semibold text-navy-900">${signedLease.rent.toLocaleString()}/mo</span>
-              {" · "}Late fee after {signedLease.lateFeeDays} days
+              {invoiceDueDate
+                ? ` · Due ${new Date(invoiceDueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                : ""}
             </p>
           </div>
 

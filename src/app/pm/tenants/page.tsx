@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/firebase/hooks";
 import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
 import { useTenantRowStats } from "@/lib/hooks/useTenantRowStats";
+import { useCurrentRentInvoice } from "@/lib/hooks/useCurrentRentInvoice";
 import { computeTenantMood } from "@/lib/tenants/mood";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -201,6 +202,7 @@ function TenantDashboardRow({
   leaseCount: number;
 }) {
   const stats = useTenantRowStats(lease.tenantId ?? "", lease.pmId);
+  const { invoice } = useCurrentRentInvoice(lease.id, lease.startDate);
 
   const { emoji, label } = computeTenantMood({
     leaseStartDate: lease.startDate,
@@ -209,6 +211,8 @@ function TenantDashboardRow({
     pmSignedAt: lease.pmSignedAt,
     lastCompletedPaymentAt: stats.lastCompletedPaymentAt ?? undefined,
     hasUrgentOpenMaintenance: stats.hasUrgentOpenMaintenance,
+    currentInvoiceDueDate: invoice?.dueDate,
+    currentInvoiceStatus: invoice?.status,
   });
 
   const tenureLabel = stats.tenantCreatedAt

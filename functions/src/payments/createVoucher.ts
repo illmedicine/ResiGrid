@@ -26,6 +26,8 @@ interface CreateVoucherRequest {
   leaseId?: string;
   /** ID in the `leaseTerms` collection (lease builder path). */
   leaseTermsId?: string;
+  /** ID in the `rentInvoices` collection — set when paying a specific due invoice. */
+  invoiceId?: string;
 }
 
 interface CreateVoucherResponse {
@@ -42,7 +44,7 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
       throw new HttpsError("unauthenticated", "Sign in to make a payment.");
     }
 
-    const { amount, pmId, recipientContact, sourceId, leaseId, leaseTermsId } = request.data;
+    const { amount, pmId, recipientContact, sourceId, leaseId, leaseTermsId, invoiceId } = request.data;
     if (!amount || amount <= 0) {
       throw new HttpsError("invalid-argument", "Amount must be greater than 0.");
     }
@@ -121,6 +123,9 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
         claimToken: randomUUID(),
         createdAt: now,
         expiresAt: now,
+        ...(leaseId ? { leaseId } : {}),
+        ...(leaseTermsId ? { leaseTermsId } : {}),
+        ...(invoiceId ? { invoiceId } : {}),
       };
       await voucherRef.set(voucher);
       await recordCompletedPayment({
@@ -130,6 +135,7 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
         voucherId: voucherRef.id,
         leaseId,
         leaseTermsId,
+        invoiceId,
       });
 
       return { voucherId: voucherRef.id, status: voucher.status };
@@ -182,6 +188,7 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
 
     if (leaseId) await voucherRef.update({ leaseId });
     if (leaseTermsId) await voucherRef.update({ leaseTermsId });
+    if (invoiceId) await voucherRef.update({ invoiceId });
     if (pmId) await voucherRef.update({ recipientUserId: pmId });
 
     // Notify the recipient — non-fatal so the payment always succeeds.

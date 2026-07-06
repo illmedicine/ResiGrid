@@ -1,5 +1,5 @@
 import { db } from "../lib/firebaseAdmin";
-import type { LeaseDoc, PaymentDoc } from "../types";
+import type { LeaseDoc, PaymentDoc, RentInvoiceDoc } from "../types";
 
 interface RecordPaymentParams {
   tenantId: string;
@@ -8,16 +8,24 @@ interface RecordPaymentParams {
   voucherId: string;
   leaseId?: string;
   leaseTermsId?: string;
+  invoiceId?: string;
 }
 
 /** Writes a `payments` doc once money has actually moved (not before). */
 export async function recordCompletedPayment(params: RecordPaymentParams): Promise<void> {
-  const { tenantId, pmId, amount, voucherId, leaseId, leaseTermsId } = params;
+  const { tenantId, pmId, amount, voucherId, leaseId, leaseTermsId, invoiceId } = params;
   const now = Date.now();
   const dayOfMonth = new Date(now).getDate();
 
   let onTime: boolean | undefined;
-  if (leaseId) {
+  let invoiceRef: FirebaseFirestore.DocumentReference | undefined;
+
+  if (invoiceId) {
+    invoiceRef = db.collection("rentInvoices").doc(invoiceId);
+    const invoiceSnap = await invoiceRef.get();
+    const invoice = invoiceSnap.data() as RentInvoiceDoc | undefined;
+    if (invoice) onTime = now <= invoice.dueDate;
+  } else if (leaseId) {
     const leaseSnap = await db.collection("leases").doc(leaseId).get();
     const lease = leaseSnap.data() as LeaseDoc | undefined;
     if (lease) onTime = dayOfMonth <= lease.dueDay;
@@ -29,18 +37,28 @@ export async function recordCompletedPayment(params: RecordPaymentParams): Promi
     onTime = dayOfMonth <= graceDay;
   }
 
+  const paymentRef = db.collection("payments").doc();
   const payment: PaymentDoc = {
-    id: "",
-    leaseId,
-    leaseTermsId,
+    id: paymentRef.id,
     tenantId,
-    pmId,
     amount,
     method: "voucher",
     status: "completed",
     paidDate: now,
-    onTime,
     voucherId,
+    ...(leaseId ? { leaseId } : {}),
+    ...(leaseTermsId ? { leaseTermsId } : {}),
+    ...(invoiceId ? { invoiceId } : {}),
+    ...(pmId ? { pmId } : {}),
+    ...(onTime !== undefined ? { onTime } : {}),
   };
-  await db.collection("payments").add(payment);
+  await paymentRef.set(payment);
+
+  if (invoiceRef) {
+    await invoiceRef.update({
+      status: "paid",
+      paidAt: now,
+      paymentId: paymentRef.id,
+    });
+  }
 }

@@ -20,10 +20,12 @@ import {
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
+import { useCurrentRentInvoice } from "@/lib/hooks/useCurrentRentInvoice";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ReputationSummary } from "@/components/tenant/ReputationSummary";
+import { DaysDueCounter } from "@/components/tenant/DaysDueCounter";
 import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 
@@ -120,7 +122,10 @@ export default function TenantDashboardPage() {
   }
 
   const totalMonthlyRent = activeLeases.reduce((sum, l) => sum + (l.lease.rent ?? 0), 0);
-  const dueDay = lease ? new Date(lease.startDate).getDate() : null;
+  const { dueDate: invoiceDueDate, paid: invoicePaid } = useCurrentRentInvoice(
+    lease?.id,
+    lease?.startDate,
+  );
 
   return (
     <div className="relative flex flex-col gap-5">
@@ -258,17 +263,19 @@ export default function TenantDashboardPage() {
           {lease ? (
             <p className="text-sm text-neutral-600">
               Rent ${lease.rent.toLocaleString()}/mo
-              {dueDay ? ` · due day ${dueDay} each month` : ""}
             </p>
           ) : (
             <p className="text-sm text-neutral-600">Here&apos;s everything about your rental.</p>
           )}
         </div>
         {lease && (
-          <Button href="/tenant/pay" size="sm">
-            <Wallet className="h-4 w-4" />
-            Pay rent
-          </Button>
+          <div className="flex items-center gap-2">
+            <DaysDueCounter dueDate={invoiceDueDate} paid={invoicePaid} />
+            <Button href="/tenant/pay" size="sm">
+              <Wallet className="h-4 w-4" />
+              Pay rent
+            </Button>
+          </div>
         )}
       </div>
 

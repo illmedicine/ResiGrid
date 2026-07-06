@@ -33,6 +33,7 @@ export interface PaymentDoc {
   id: string;
   leaseId?: string;
   leaseTermsId?: string;
+  invoiceId?: string;
   tenantId: string;
   pmId?: string;
   amount: number;
@@ -68,6 +69,28 @@ export interface VoucherDoc {
   createdAt: number;
   expiresAt: number;
   leaseId?: string;
+  leaseTermsId?: string;
+  invoiceId?: string;
+}
+
+export type RentInvoiceStatus = "pending" | "paid" | "overdue";
+
+/** Automated rent invoice — one per 30-day cycle from the lease's startDate. */
+export interface RentInvoiceDoc {
+  id: string;
+  leaseTermsId: string;
+  tenantId: string;
+  pmId: string;
+  propertyId: string;
+  unitId: string;
+  amount: number;
+  cycleNumber: number;
+  periodStart: number;
+  dueDate: number;
+  status: RentInvoiceStatus;
+  createdAt: number;
+  paidAt?: number;
+  paymentId?: string;
 }
 
 export interface BadgeDoc {

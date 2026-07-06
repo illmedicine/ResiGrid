@@ -78,7 +78,8 @@ export async function claimVoucherForUid(uid: string, claimToken: string): Promi
     amount: voucher.amount,
     voucherId: voucherDoc.id,
     leaseId: voucher.leaseId,
-    leaseTermsId: (voucher as any).leaseTermsId,
+    leaseTermsId: voucher.leaseTermsId,
+    invoiceId: voucher.invoiceId,
   });
 
   // If this PM has no subscription doc yet, grant them free portal access

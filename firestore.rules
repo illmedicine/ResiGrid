@@ -147,6 +147,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /rentInvoices/{invoiceId} {
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow write: if false;
+    }
+
     match /vouchers/{voucherId} {
       allow read: if isSignedIn() && (
         resource.data.senderId == request.auth.uid ||

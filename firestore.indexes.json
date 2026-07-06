@@ -128,6 +128,14 @@
         { "fieldPath": "pmId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "rentInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leaseTermsId", "order": "ASCENDING" },
+        { "fieldPath": "dueDate", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -24,6 +24,7 @@ import type {
   PMTeamInviteDoc,
   PropertyDoc,
   PropertyManagerDoc,
+  RentInvoiceDoc,
   ReputationScoreDoc,
   SharedDocumentDoc,
   TenantInterestDoc,
@@ -82,3 +83,5 @@ export const nationalListingsCol = () =>
   typedCollection<NationalListingDoc>("nationalListings");
 export const pmTeamInvitesCol = () =>
   typedCollection<PMTeamInviteDoc>("pmTeamInvites");
+export const rentInvoicesCol = () =>
+  typedCollection<RentInvoiceDoc>("rentInvoices");

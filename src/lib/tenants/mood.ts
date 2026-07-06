@@ -8,6 +8,11 @@ export interface TenantMoodInput {
   /** Most recent *completed* payment date, if any. */
   lastCompletedPaymentAt?: number;
   hasUrgentOpenMaintenance: boolean;
+  /** Due date of the tenant's current rent invoice, when one exists —
+   * preferred over the day-of-month heuristic below. */
+  currentInvoiceDueDate?: number;
+  /** Status of the tenant's current rent invoice, when one exists. */
+  currentInvoiceStatus?: "pending" | "paid" | "overdue";
   /** Injectable for testing; defaults to Date.now(). */
   now?: number;
 }
@@ -45,12 +50,18 @@ export function computeTenantMood(input: TenantMoodInput): TenantMoodResult {
     return { mood: "angry", emoji: "😠", label: "Urgent maintenance open" };
   }
 
-  const dueDate = mostRecentDueDate(input.leaseStartDate, now);
-  const graceDeadline = dueDate + input.lateFeeDays * MS_PER_DAY;
-  const isCurrentCyclePaid =
-    input.lastCompletedPaymentAt != null && input.lastCompletedPaymentAt >= dueDate;
+  const usingRealInvoice = input.currentInvoiceDueDate != null;
+  const dueDate = usingRealInvoice
+    ? input.currentInvoiceDueDate!
+    : mostRecentDueDate(input.leaseStartDate, now);
+  const isCurrentCyclePaid = usingRealInvoice
+    ? input.currentInvoiceStatus === "paid"
+    : input.lastCompletedPaymentAt != null && input.lastCompletedPaymentAt >= dueDate;
+  const isOverdue = usingRealInvoice
+    ? input.currentInvoiceStatus === "overdue"
+    : !isCurrentCyclePaid && now > dueDate + input.lateFeeDays * MS_PER_DAY;
 
-  if (!isCurrentCyclePaid && now > graceDeadline) {
+  if (isOverdue) {
     return { mood: "sad", emoji: "😟", label: "Rent overdue" };
   }
 

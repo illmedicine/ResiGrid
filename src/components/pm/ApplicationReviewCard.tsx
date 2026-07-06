@@ -42,7 +42,7 @@ export function ApplicationReviewCard({
   }, [application.tenantId]);
 
   const score = reputation
-    ? computeScore(reputation.onTimeCount, reputation.lateCount)
+    ? computeScore(reputation.onTimeCount, reputation.lateCount, reputation.currentStreak)
     : null;
   const cfg = STATUS_CONFIG[application.status];
   const needsAction = ["submitted", "more_info_needed"].includes(application.status);
@@ -71,7 +71,7 @@ export function ApplicationReviewCard({
             <span>
               RGE Score:{" "}
               <strong className="text-navy-900">
-                {score === null ? "No history" : `${score}%`}
+                {score === null ? "No history" : score}
               </strong>
             </span>
             {reputation && (

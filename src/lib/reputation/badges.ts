@@ -47,10 +47,25 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
 ];
 
-export function computeScore(onTimeCount: number, lateCount: number): number {
+/**
+ * Points-based RGE score with headroom above 100 — PRESTIGE_TIERS
+ * (src/lib/rge/prestige.ts) goes up to 1000, so a flat 0-100 ratio could
+ * never reach the top tiers. `activeLeaseCount` rewards tenants holding more
+ * than one concurrent signed lease.
+ */
+export function computeScore(
+  onTimeCount: number,
+  lateCount: number,
+  currentStreak = 0,
+  activeLeaseCount = 1,
+): number {
   const total = onTimeCount + lateCount;
-  if (total === 0) return 0;
-  return Math.round((onTimeCount / total) * 100);
+  const onTimeRatio = total === 0 ? 0 : onTimeCount / total;
+  const basePoints = Math.round(onTimeRatio * 300); // payment reliability
+  const volumePoints = Math.min(onTimeCount * 4, 400); // track record depth
+  const streakPoints = Math.min(currentStreak * 8, 200); // consecutive streak
+  const leasePoints = Math.max(0, activeLeaseCount - 1) * 60; // extra concurrent leases
+  return Math.round(basePoints + volumePoints + streakPoints + leasePoints);
 }
 
 export function earnedBadgeIds(

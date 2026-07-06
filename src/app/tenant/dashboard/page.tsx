@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
 import {
   Bell,
@@ -26,16 +18,14 @@ import {
   Wrench,
 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { leaseTermsCol, listingsCol, unitsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
-import { useActiveLease } from "@/lib/hooks/useActiveLease";
+import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ReputationSummary } from "@/components/tenant/ReputationSummary";
 import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
-import type { LeaseTermsDoc, ListingDoc, PropertyDoc, UnitDoc } from "@/lib/types/models";
 
 const RESIDENT_BADGE = {
   id: "resident",
@@ -45,98 +35,32 @@ const RESIDENT_BADGE = {
 
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
-  const { lease, loading: leaseLoading } = useActiveLease(user?.uid);
-  const [myUnit, setMyUnit] = useState<UnitDoc | null>(null);
-  const [myProperty, setMyProperty] = useState<PropertyDoc | null>(null);
-  const [myListing, setMyListing] = useState<ListingDoc | null>(null);
+  const { activeLeases, pendingLeases, selectedLease, loading: leasesLoading } =
+    useTenantLeaseContext();
   const [copied, setCopied] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [fullySignedLease, setFullySignedLease] = useState<LeaseTermsDoc | null>(null);
   const [showInsurance, setShowInsurance] = useState(false);
   const [heroSlide, setHeroSlide] = useState(0);
   const slideTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load unit by currentTenantId (PM assignment flow)
+  const hasSignedLease = activeLeases.length > 0;
+  const myProperty = selectedLease?.property ?? null;
+  const myUnit = selectedLease?.unit ?? null;
+  const lease = selectedLease?.lease ?? null;
+
+  // Celebrate the first time a fully-signed lease shows up, once per day.
   useEffect(() => {
-    if (!user) return;
-    const q = query(unitsCol(), where("currentTenantId", "==", user.uid));
-    return onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        setMyUnit({ ...snap.docs[0].data(), id: snap.docs[0].id } as UnitDoc);
-      }
-    });
-  }, [user]);
-
-  // Fallback: load unit from fully-signed leaseTerms when no currentTenantId assignment
-  useEffect(() => {
-    if (!user) return;
-    const q = query(
-      leaseTermsCol(),
-      where("tenantId", "==", user.uid),
-      where("status", "==", "fully_signed"),
-    );
-    return onSnapshot(q, (snap) => {
-      const signed = snap.docs
-        .map((d) => ({ ...d.data(), id: d.id } as LeaseTermsDoc))
-        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0] ?? null;
-      setFullySignedLease(signed);
-
-      if (signed?.unitId) {
-        setMyUnit((prev) => {
-          if (prev) return prev;
-          return { id: signed.unitId } as UnitDoc;
-        });
-        onSnapshot(doc(db, "units", signed.unitId), (uSnap) => {
-          if (uSnap.exists()) setMyUnit({ ...uSnap.data(), id: uSnap.id } as UnitDoc);
-        });
-      }
-
-      if (signed) {
-        const key = `confetti_shown_${user.uid}`;
-        const last = sessionStorage.getItem(key);
-        const today = new Date().toDateString();
-        if (last !== today) {
-          sessionStorage.setItem(key, today);
-          setShowConfetti(true);
-        }
-      }
-    });
-  }, [user]);
-
-  // Third path: load unit directly from lease.unitId when fully signed via leasesCol
-  useEffect(() => {
-    if (!lease?.unitId || lease.signedStatus !== "fully_signed") return;
-    return onSnapshot(doc(db, "units", lease.unitId), (snap) => {
-      if (snap.exists()) {
-        setMyUnit((prev) => prev ?? ({ ...snap.data(), id: snap.id } as UnitDoc));
-      }
-    });
-  }, [lease?.unitId, lease?.signedStatus]);
-
-  // Load property from unit's propertyId OR leaseTerms.propertyId
-  useEffect(() => {
-    const propertyId = myUnit?.propertyId ?? fullySignedLease?.propertyId;
-    if (!propertyId) { setMyProperty(null); return; }
-    return onSnapshot(doc(db, "properties", propertyId), (snap) => {
-      setMyProperty(snap.exists() ? ({ ...snap.data(), id: snap.id } as PropertyDoc) : null);
-    });
-  }, [myUnit?.propertyId, fullySignedLease?.propertyId]);
-
-  // Load listing (for photos) — try unit id from any path, fallback to leaseTerms / lease
-  useEffect(() => {
-    const id = myUnit?.id ?? fullySignedLease?.unitId ?? lease?.unitId;
-    if (!id) { setMyListing(null); return; }
-    const q = query(listingsCol(), where("unitId", "==", id));
-    return onSnapshot(q, (snap) => {
-      const listings = snap.docs.map((d) => ({ ...d.data(), id: d.id } as ListingDoc));
-      setMyListing(listings.find((l) => l.status === "published") ?? listings[0] ?? null);
-    });
-  }, [myUnit?.id, fullySignedLease?.unitId, lease?.unitId]);
+    if (!user || !hasSignedLease) return;
+    const key = `confetti_shown_${user.uid}`;
+    const last = sessionStorage.getItem(key);
+    const today = new Date().toDateString();
+    if (last !== today) {
+      sessionStorage.setItem(key, today);
+      setShowConfetti(true);
+    }
+  }, [user, hasSignedLease]);
 
   // Bootstrap resident badge + 100 RGE pts for tenants with a signed lease who haven't been awarded yet
-  const hasSignedLease = Boolean(
-    fullySignedLease || (lease && lease.signedStatus === "fully_signed"),
-  );
   useEffect(() => {
     if (!user || !hasSignedLease) return;
     const ref = doc(db, "reputationScores", user.uid);
@@ -164,11 +88,9 @@ export default function TenantDashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, hasSignedLease]);
 
-  const heroPhotos: string[] = myListing?.photos?.length
-    ? myListing.photos
-    : (myProperty?.photos ?? []);
+  const heroPhotos: string[] = myProperty?.photos ?? [];
 
-  // Auto-advance hero slider
+  // Auto-advance hero slider (through the selected property's own photos)
   useEffect(() => {
     if (heroPhotos.length <= 1) return;
     if (slideTimer.current) clearInterval(slideTimer.current);
@@ -180,14 +102,8 @@ export default function TenantDashboardPage() {
     };
   }, [heroPhotos.length]);
 
-  // Reset slide index when photos array changes (different unit loaded)
-  useEffect(() => { setHeroSlide(0); }, [heroPhotos.length]);
-
-  const hasHome = hasSignedLease;
-  const activeLease = lease ?? (fullySignedLease ? {
-    rentAmount: fullySignedLease.rent,
-    dueDay: fullySignedLease.lateFeeDays ?? 1,
-  } : null);
+  // Reset slide index when the selected property changes
+  useEffect(() => { setHeroSlide(0); }, [myProperty?.id]);
 
   function prevSlide() {
     setHeroSlide((i) => (i - 1 + heroPhotos.length) % heroPhotos.length);
@@ -203,6 +119,9 @@ export default function TenantDashboardPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const totalMonthlyRent = activeLeases.reduce((sum, l) => sum + (l.lease.rent ?? 0), 0);
+  const dueDay = lease ? new Date(lease.startDate).getDate() : null;
+
   return (
     <div className="relative flex flex-col gap-5">
       {showConfetti && (
@@ -213,8 +132,17 @@ export default function TenantDashboardPage() {
       )}
       <WatermarkLogo size={500} opacity={0.04} />
 
+      {/* ── Multi-property aggregate strip ──────────────────────────── */}
+      {activeLeases.length > 1 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-xs text-orange-800">
+          <span className="font-semibold">{activeLeases.length} properties</span>
+          <span>${totalMonthlyRent.toLocaleString()}/mo combined</span>
+          <span className="text-orange-600">Use the property switcher above to view each one</span>
+        </div>
+      )}
+
       {/* ── My Home hero slider ──────────────────────────────────────── */}
-      {hasHome && (
+      {hasSignedLease && (
         <Card className="overflow-hidden p-0">
           <CardContent className="flex flex-col gap-0 p-0">
             {heroPhotos.length > 0 ? (
@@ -327,16 +255,16 @@ export default function TenantDashboardPage() {
           <h1 className="text-xl font-bold text-navy-900">
             {userDoc?.displayName ? `Welcome back, ${userDoc.displayName.split(" ")[0]}` : "Welcome back"}
           </h1>
-          {activeLease ? (
+          {lease ? (
             <p className="text-sm text-neutral-600">
-              Rent ${(activeLease as { rentAmount: number }).rentAmount?.toLocaleString() ?? "—"}/mo
-              {" · "}due day {(activeLease as { dueDay: number }).dueDay ?? "—"} each month
+              Rent ${lease.rent.toLocaleString()}/mo
+              {dueDay ? ` · due day ${dueDay} each month` : ""}
             </p>
           ) : (
             <p className="text-sm text-neutral-600">Here&apos;s everything about your rental.</p>
           )}
         </div>
-        {activeLease && (
+        {lease && (
           <Button href="/tenant/pay" size="sm">
             <Wallet className="h-4 w-4" />
             Pay rent
@@ -403,16 +331,16 @@ export default function TenantDashboardPage() {
       )}
 
       {/* ── Lease status (if no active lease) ────────────────────── */}
-      {!leaseLoading && !activeLease && (
+      {!leasesLoading && !lease && (
         <Card className="p-5">
           <CardContent className="flex flex-col gap-2 p-0">
             <h2 className="text-sm font-semibold text-navy-900">Lease status</h2>
-            {myUnit ? (
+            {pendingLeases.length > 0 ? (
               <>
                 <p className="text-sm text-neutral-600">
-                  You&apos;re assigned to a unit — your property manager will send your lease shortly.
+                  You have a lease awaiting your signature.
                 </p>
-                <Badge tone="neutral" className="w-fit">Awaiting lease</Badge>
+                <Button href="/tenant/lease" size="sm" className="w-fit">Review & sign</Button>
               </>
             ) : (
               <>

@@ -19,10 +19,54 @@ const BADGE_DEFINITIONS: BadgeDefinition[] = [
   { id: "always_on_time_25", label: "Always On Time", description: "25 total on-time payments with no late payments.", onTimeCountThreshold: 25 },
 ];
 
-function computeScore(onTimeCount: number, lateCount: number): number {
+/** Points awarded per concurrent active lease beyond the first. */
+export const LEASE_BONUS_PER_EXTRA_LEASE = 60;
+
+export function leaseBonus(activeLeaseCount: number): number {
+  return Math.max(0, activeLeaseCount - 1) * LEASE_BONUS_PER_EXTRA_LEASE;
+}
+
+/**
+ * Points-based RGE score with headroom above 100 — mirrors
+ * src/lib/reputation/badges.ts in the Next.js app. `activeLeaseCount`
+ * rewards tenants holding more than one concurrent signed lease.
+ */
+export function computeScore(
+  onTimeCount: number,
+  lateCount: number,
+  currentStreak: number,
+  activeLeaseCount: number,
+): number {
   const total = onTimeCount + lateCount;
-  if (total === 0) return 0;
-  return Math.round((onTimeCount / total) * 100);
+  const onTimeRatio = total === 0 ? 0 : onTimeCount / total;
+  const basePoints = Math.round(onTimeRatio * 300);
+  const volumePoints = Math.min(onTimeCount * 4, 400);
+  const streakPoints = Math.min(currentStreak * 8, 200);
+  return Math.round(basePoints + volumePoints + streakPoints + leaseBonus(activeLeaseCount));
+}
+
+export async function countActiveLeases(tenantId: string): Promise<number> {
+  const snap = await db
+    .collection("leaseTerms")
+    .where("tenantId", "==", tenantId)
+    .where("status", "==", "fully_signed")
+    .get();
+  return snap.size;
+}
+
+/** Recompute a tenant's score in place (e.g. after their active lease count
+ * changes) without touching onTimeCount/lateCount/badges. */
+export async function recalcTenantScore(tenantId: string): Promise<void> {
+  const ref = db.collection("reputationScores").doc(tenantId);
+  const activeLeaseCount = await countActiveLeases(tenantId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const existing = snap.data() as ReputationScoreDoc;
+    tx.update(ref, {
+      score: computeScore(existing.onTimeCount, existing.lateCount, existing.currentStreak, activeLeaseCount),
+    });
+  });
 }
 
 export const recalcReputationOnPayment = onDocumentCreated(
@@ -32,6 +76,7 @@ export const recalcReputationOnPayment = onDocumentCreated(
     if (!payment || payment.status !== "completed" || payment.onTime === undefined) return;
 
     const ref = db.collection("reputationScores").doc(payment.tenantId);
+    const activeLeaseCount = await countActiveLeases(payment.tenantId);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const existing = snap.exists ? (snap.data() as ReputationScoreDoc) : undefined;
@@ -66,7 +111,7 @@ export const recalcReputationOnPayment = onDocumentCreated(
         totalCount,
         currentStreak,
         badges,
-        score: computeScore(onTimeCount, lateCount),
+        score: computeScore(onTimeCount, lateCount, currentStreak, activeLeaseCount),
       };
       tx.set(ref, updated);
     });

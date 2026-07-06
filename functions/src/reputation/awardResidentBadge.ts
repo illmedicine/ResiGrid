@@ -1,6 +1,10 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { db } from "../lib/firebaseAdmin";
+import { countActiveLeases, leaseBonus } from "./recalc";
 import type { ReputationScoreDoc } from "../types";
+
+/** Baseline score floor for reaching the "Resident" prestige tier. */
+const RESIDENT_FLOOR = 100;
 
 const RESIDENT_BADGE = {
   id: "resident",
@@ -26,6 +30,7 @@ export const awardResidentBadge = onDocumentWritten(
     if (!tenantId) return;
 
     const ref = db.collection("reputationScores").doc(tenantId);
+    const activeLeaseCount = await countActiveLeases(tenantId);
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const existing = snap.exists ? (snap.data() as ReputationScoreDoc) : null;
@@ -38,10 +43,12 @@ export const awardResidentBadge = onDocumentWritten(
         { ...RESIDENT_BADGE, earnedAt: Date.now() },
       ];
 
+      const floor = RESIDENT_FLOOR + leaseBonus(activeLeaseCount);
+
       if (existing) {
         tx.update(ref, {
           badges,
-          score: Math.max(existing.score ?? 0, 100),
+          score: Math.max(existing.score ?? 0, floor),
         });
       } else {
         const baseline: ReputationScoreDoc = {
@@ -51,7 +58,7 @@ export const awardResidentBadge = onDocumentWritten(
           totalCount: 0,
           currentStreak: 0,
           badges,
-          score: 100,
+          score: floor,
         };
         tx.set(ref, baseline);
       }

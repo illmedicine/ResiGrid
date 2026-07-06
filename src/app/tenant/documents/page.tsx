@@ -7,6 +7,7 @@ import { ClipboardList, FileText, FolderOpen, Loader2, Trash2, Upload } from "lu
 import { storage } from "@/lib/firebase/config";
 import { applicationsCol, leaseTermsCol, sharedDocumentsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -58,13 +59,13 @@ const APP_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
 
 export default function TenantDocumentsPage() {
   const { user } = useAuth();
+  const { selectedLease } = useTenantLeaseContext();
   const [sharedDocs, setSharedDocs] = useState<SharedDocumentDoc[]>([]);
   const [leases, setLeases] = useState<LeaseTermsDoc[]>([]);
   const [applications, setApplications] = useState<ApplicationDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<(typeof UPLOAD_CATEGORIES)[number]>("other");
-  const [pmId, setPmId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -94,7 +95,6 @@ export default function TenantDocumentsPage() {
         const ls = snap.docs.map((d) => ({ ...d.data(), id: d.id } as LeaseTermsDoc))
           .sort((a, b) => b.createdAt - a.createdAt);
         setLeases(ls);
-        if (ls.length > 0 && ls[0].pmId) setPmId(ls[0].pmId);
         tryDone();
       }, tryDone),
     );
@@ -127,7 +127,7 @@ export default function TenantDocumentsPage() {
           uploaderId: user.uid,
           uploaderRole: "tenant" as const,
           tenantId: user.uid,
-          pmId: pmId ?? "unassigned",
+          pmId: selectedLease?.lease.pmId ?? "unassigned",
           name: file.name,
           url,
           mimeType: file.type,

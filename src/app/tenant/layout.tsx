@@ -5,6 +5,8 @@ import { Bell, FileText, Home, MessageSquare, Search, Wallet, Wrench } from "luc
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { PortalShell, type PortalNavItem } from "@/components/layout/PortalShell";
 import { useMyNotices } from "@/lib/hooks/useMyNotices";
+import { TenantLeaseProvider } from "@/lib/context/TenantLeaseContext";
+import { PropertySwitcher } from "@/components/tenant/PropertySwitcher";
 
 const navItems: PortalNavItem[] = [
   { href: "/tenant/dashboard", label: "Home", icon: Home },
@@ -22,6 +24,7 @@ function TenantLayoutInner({ children }: { children: ReactNode }) {
     <PortalShell
       navItems={navItems}
       notificationBadge={{ count: unreadCount, href: "/tenant/notices" }}
+      subHeader={<PropertySwitcher />}
     >
       {children}
     </PortalShell>
@@ -31,7 +34,9 @@ function TenantLayoutInner({ children }: { children: ReactNode }) {
 export default function TenantLayout({ children }: { children: ReactNode }) {
   return (
     <RoleGuard role="tenant">
-      <TenantLayoutInner>{children}</TenantLayoutInner>
+      <TenantLeaseProvider>
+        <TenantLayoutInner>{children}</TenantLayoutInner>
+      </TenantLeaseProvider>
     </RoleGuard>
   );
 }

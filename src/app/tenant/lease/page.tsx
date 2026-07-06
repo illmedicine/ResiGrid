@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addDoc, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, doc, setDoc, updateDoc } from "firebase/firestore";
 import { CheckCircle2, Clock, FileText, PenLine } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { leaseTermsCol, messageThreadsCol, threadMessagesCol } from "@/lib/firebase/firestore";
+import { messageThreadsCol, threadMessagesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { LeasePreviewDoc } from "@/components/pm/lease/LeasePreviewDoc";
-import type { LeaseTermsDoc } from "@/lib/types/models";
+import { cn } from "@/lib/utils/cn";
 
 const SIGN_WINDOW_MS = 48 * 60 * 60 * 1000;
 
@@ -54,33 +55,33 @@ async function sendDM(pmId: string, tenantId: string, senderId: string, content:
 
 export default function TenantLeasePage() {
   const { user } = useAuth();
-  const [lease, setLease] = useState<LeaseTermsDoc | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { leases, pendingLeases, activeLeases, loading } = useTenantLeaseContext();
+  const [viewingLeaseId, setViewingLeaseId] = useState<string | null>(null);
   const [sigName, setSigName] = useState("");
   const [signing, setSigning] = useState(false);
   const [signed, setSigned] = useState(false);
-  const viewedRef = useRef(false);
+  const viewedRef = useRef<string | null>(null);
 
+  // Every lease that's actually been sent to the tenant (drafts are PM-only).
+  const reviewable = leases.filter((l) => l.lease.status !== "draft");
+
+  // Default to a lease that still needs the tenant's signature, else the
+  // most recently signed one.
   useEffect(() => {
-    if (!user) return;
-    const q = query(leaseTermsCol(), where("tenantId", "==", user.uid));
-    return onSnapshot(q, (snap) => {
-      const docs = snap.docs
-        .map((d) => ({ ...d.data(), id: d.id } as LeaseTermsDoc))
-        .sort((a, b) => b.createdAt - a.createdAt);
-      const active =
-        docs.find((l) => ["sent", "tenant_signed", "fully_signed"].includes(l.status)) ??
-        docs[0] ??
-        null;
-      setLease(active);
-      setLoading(false);
-    }, () => setLoading(false));
-  }, [user]);
+    if (loading) return;
+    if (viewingLeaseId && reviewable.some((l) => l.lease.id === viewingLeaseId)) return;
+    const def = pendingLeases[0] ?? activeLeases[0] ?? reviewable[0] ?? null;
+    setViewingLeaseId(def?.lease.id ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pendingLeases, activeLeases, reviewable, viewingLeaseId]);
+
+  const viewing = reviewable.find((l) => l.lease.id === viewingLeaseId) ?? null;
+  const lease = viewing?.lease ?? null;
 
   // Mark viewed on first load of a sent lease → notify PM
   useEffect(() => {
-    if (!lease || !user || viewedRef.current || lease.status !== "sent" || lease.viewedAt) return;
-    viewedRef.current = true;
+    if (!lease || !user || viewedRef.current === lease.id || lease.status !== "sent" || lease.viewedAt) return;
+    viewedRef.current = lease.id;
     updateDoc(doc(db, "leaseTerms", lease.id), { viewedAt: Date.now() })
       .then(() => {
         if (lease.pmId) {
@@ -125,6 +126,30 @@ export default function TenantLeasePage() {
         <h1 className="text-xl font-bold text-navy-900">Lease Agreement</h1>
         <p className="text-sm text-neutral-600">Review and sign your lease.</p>
       </div>
+
+      {/* Lease picker — only shown when there's more than one to review */}
+      {reviewable.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {reviewable.map(({ lease: l, property, unit }) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => { setViewingLeaseId(l.id); setSigned(false); setSigName(""); }}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                l.id === viewingLeaseId
+                  ? "border-orange-400 bg-orange-50 text-orange-700"
+                  : "border-neutral-200 bg-white text-neutral-600 hover:border-orange-200",
+              )}
+            >
+              {property?.name ?? "Property"}{unit ? ` · Unit ${unit.unitNumber}` : ""}
+              {(l.status === "sent" || l.status === "tenant_signed") && (
+                <span className="ml-1.5 text-orange-500">●</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-neutral-600">Loading…</p>

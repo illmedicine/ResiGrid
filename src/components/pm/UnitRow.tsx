@@ -7,6 +7,7 @@ import { z } from "zod";
 import { arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Camera, Edit2, ExternalLink, Trash2, UserMinus } from "lucide-react";
 import { db } from "@/lib/firebase/config";
+import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +37,7 @@ export function UnitRow({ unit, property, activeListing }: {
   const [error, setError] = useState<string | null>(null);
   const [unitPhotos, setUnitPhotos] = useState<string[]>(unit.photos ?? []);
   const [savingPhotos, setSavingPhotos] = useState(false);
+  const tenantName = useUserDisplayName(unit.currentTenantId);
 
   const editForm = useForm<EditInput, unknown, EditValues>({
     resolver: zodResolver(editSchema),
@@ -109,7 +111,8 @@ export function UnitRow({ unit, property, activeListing }: {
             </p>
             {unit.currentTenantId && (
               <p className="mt-0.5 text-xs text-neutral-500">
-                Tenant: <span className="font-mono">{unit.currentTenantId}</span>
+                Tenant: <span className="font-medium text-navy-900">{tenantName ?? "—"}</span>{" "}
+                <span className="font-mono">({unit.currentTenantId})</span>
               </p>
             )}
           </div>

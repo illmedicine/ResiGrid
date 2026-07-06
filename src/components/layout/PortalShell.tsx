@@ -23,6 +23,8 @@ interface PortalShellProps {
   navItems: PortalNavItem[];
   children: ReactNode;
   notificationBadge?: { count: number; href: string };
+  /** Optional bar rendered between the header and page content (e.g. a property switcher). */
+  subHeader?: ReactNode;
 }
 
 function NotificationBell({ badge }: { badge: { count: number; href: string } }) {
@@ -166,7 +168,7 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
   );
 }
 
-export function PortalShell({ navItems, children, notificationBadge }: PortalShellProps) {
+export function PortalShell({ navItems, children, notificationBadge, subHeader }: PortalShellProps) {
   const pathname = usePathname();
   const { user, userDoc } = useAuth();
   const [rgeScore, setRgeScore] = useState<number>(0);
@@ -233,6 +235,8 @@ export function PortalShell({ navItems, children, notificationBadge }: PortalShe
           />
         </div>
       </header>
+
+      {subHeader}
 
       <main
         className="relative flex-1 px-4 py-5 md:px-8 md:py-6"

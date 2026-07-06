@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { Camera, Save, User } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/firebase/hooks";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getPrestigeTier } from "@/lib/rge/prestige";
+import type { ReputationScoreDoc } from "@/lib/types/models";
 
 export default function TenantSettingsPage() {
   const { user, userDoc } = useAuth();
@@ -15,9 +16,17 @@ export default function TenantSettingsPage() {
   const [displayName, setDisplayName] = useState(userDoc?.displayName ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [rgeScore, setRgeScore] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(db, "reputationScores", user.uid), (snap) => {
+      setRgeScore(snap.exists() ? (snap.data() as ReputationScoreDoc).score ?? 0 : 0);
+    });
+  }, [user]);
 
   const photoURL = user?.photoURL ?? userDoc?.photoURL;
-  const prestige = getPrestigeTier(0);
+  const prestige = getPrestigeTier(rgeScore);
 
   async function handleSave() {
     if (!user || !displayName.trim()) return;

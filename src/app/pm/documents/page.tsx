@@ -13,6 +13,7 @@ import {
   sharedDocumentsCol,
 } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -264,7 +265,7 @@ export default function PmDocumentsPage() {
                       <ClipboardList className="h-5 w-5 shrink-0 text-blue-500" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-navy-900">
-                          Applicant <span className="font-mono text-xs text-neutral-500">{app.tenantId.slice(0, 8)}…</span>
+                          <TenantLabel tenantId={app.tenantId} />
                         </p>
                         <p className="text-xs text-neutral-500">Submitted {fmt(app.submittedAt)}</p>
                         {app.documentUrls && app.documentUrls.length > 0 && (
@@ -300,7 +301,7 @@ export default function PmDocumentsPage() {
                         {d.name}
                       </a>
                       <p className="text-xs text-neutral-500">
-                        {d.category} · {formatBytes(d.sizeBytes)} · Tenant: {d.tenantId.slice(0, 8)}… · {fmt(d.createdAt)}
+                        {d.category} · {formatBytes(d.sizeBytes)} · Tenant: <TenantLabel tenantId={d.tenantId} /> · {fmt(d.createdAt)}
                       </p>
                     </div>
                   </CardContent>
@@ -365,7 +366,7 @@ export default function PmDocumentsPage() {
                           {d.name}
                         </a>
                         <p className="text-xs text-neutral-500">
-                          {d.category} · {formatBytes(d.sizeBytes)} · Tenant: {d.tenantId.slice(0, 8)}… · {fmt(d.createdAt)}
+                          {d.category} · {formatBytes(d.sizeBytes)} · Tenant: <TenantLabel tenantId={d.tenantId} /> · {fmt(d.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -380,5 +381,14 @@ export default function PmDocumentsPage() {
         </>
       )}
     </div>
+  );
+}
+
+function TenantLabel({ tenantId }: { tenantId: string }) {
+  const name = useUserDisplayName(tenantId);
+  return (
+    <>
+      {name ?? "Unknown tenant"} <span className="font-mono">({tenantId.slice(0, 8)}…)</span>
+    </>
   );
 }

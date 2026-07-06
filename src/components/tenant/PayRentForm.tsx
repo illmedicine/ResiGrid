@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, query, where } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,12 +9,11 @@ import { z } from "zod";
 import { CheckCircle2, Home, User } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { functions } from "@/lib/firebase/config";
-import { leaseTermsCol, unitsCol, usersCol } from "@/lib/firebase/firestore";
-import { useAuth } from "@/lib/firebase/hooks";
+import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
-import type { LeaseTermsDoc, PropertyDoc, UnitDoc, UserDoc } from "@/lib/types/models";
+import type { UserDoc } from "@/lib/types/models";
 import type { SquareCard } from "@/lib/square/client";
 import { SquareCardField } from "./SquareCardField";
 
@@ -34,31 +33,17 @@ interface CreateVoucherResponse {
 }
 
 export function PayRentForm() {
-  const { user } = useAuth();
-
-  // Lease + context data
-  const [signedLease, setSignedLease] = useState<LeaseTermsDoc | null>(null);
+  const { selectedLease, loading: leaseLoading } = useTenantLeaseContext();
+  const signedLease = selectedLease?.lease ?? null;
+  const myProperty = selectedLease?.property ?? null;
+  const myUnit = selectedLease?.unit ?? null;
   const [pmUser, setPmUser] = useState<UserDoc | null>(null);
-  const [myUnit, setMyUnit] = useState<UnitDoc | null>(null);
-  const [myProperty, setMyProperty] = useState<PropertyDoc | null>(null);
-  const [leaseLoading, setLeaseLoading] = useState(true);
 
   // Payment state
   const [card, setCard] = useState<SquareCard | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateVoucherResponse | null>(null);
-
-  // Load signed lease from leaseTerms collection
-  useEffect(() => {
-    if (!user) return;
-    const q = query(leaseTermsCol(), where("tenantId", "==", user.uid), where("status", "==", "fully_signed"));
-    return onSnapshot(q, (snap) => {
-      const lease = snap.empty ? null : ({ ...snap.docs[0].data(), id: snap.docs[0].id } as LeaseTermsDoc);
-      setSignedLease(lease);
-      setLeaseLoading(false);
-    });
-  }, [user]);
 
   // Load PM user
   useEffect(() => {
@@ -67,22 +52,6 @@ export function PayRentForm() {
       setPmUser(snap.exists() ? ({ ...snap.data(), uid: snap.id } as UserDoc) : null);
     });
   }, [signedLease?.pmId]);
-
-  // Load unit
-  useEffect(() => {
-    if (!signedLease?.unitId) { setMyUnit(null); return; }
-    return onSnapshot(doc(db, "units", signedLease.unitId), (snap) => {
-      setMyUnit(snap.exists() ? ({ ...snap.data(), id: snap.id } as UnitDoc) : null);
-    });
-  }, [signedLease?.unitId]);
-
-  // Load property
-  useEffect(() => {
-    if (!signedLease?.propertyId) { setMyProperty(null); return; }
-    return onSnapshot(doc(db, "properties", signedLease.propertyId), (snap) => {
-      setMyProperty(snap.exists() ? ({ ...snap.data(), id: snap.id } as PropertyDoc) : null);
-    });
-  }, [signedLease?.propertyId]);
 
   const hasLease = Boolean(signedLease);
 
@@ -175,13 +144,11 @@ export function PayRentForm() {
           <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-navy-900">
               <Home className="h-4 w-4 text-orange-500" />
-              Paying rent
+              Paying rent for: {myProperty?.name ?? "—"}
+              {myUnit ? ` · Unit ${myUnit.unitNumber}` : ""}
             </div>
             {myProperty && (
               <p className="text-xs text-neutral-600">
-                {myProperty.name}
-                {myUnit ? ` · Unit ${myUnit.unitNumber}` : ""}
-                {" · "}
                 {myProperty.addressLine1}, {myProperty.city}, {myProperty.state}
               </p>
             )}

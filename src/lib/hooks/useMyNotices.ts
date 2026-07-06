@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { arrayUnion, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { leasesCol, leaseTermsCol, noticesCol, unitsCol } from "@/lib/firebase/firestore";
+import { noticesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useTenantLeases } from "@/lib/hooks/useTenantLeases";
 import type { NoticeDoc } from "@/lib/types/models";
 
 export interface TenantNotice extends NoticeDoc {
@@ -13,56 +14,32 @@ export interface TenantNotice extends NoticeDoc {
 
 export function useMyNotices() {
   const { user } = useAuth();
-  const [pmId, setPmId] = useState<string | null>(null);
-  const [propertyId, setPropertyId] = useState<string | null>(null);
-  const [unitId, setUnitId] = useState<string | null>(null);
+  const { activeLeases } = useTenantLeases(user?.uid);
   const [rawNotices, setRawNotices] = useState<NoticeDoc[]>([]);
 
-  // Resolve pmId from leases
-  useEffect(() => {
-    if (!user) return;
-    const q = query(leasesCol(), where("tenantId", "==", user.uid));
-    return onSnapshot(q, (snap) => {
-      const sorted = snap.docs
-        .map((d) => d.data())
-        .sort((a, b) => b.createdAt - a.createdAt);
-      if (sorted[0]?.pmId) setPmId(sorted[0].pmId);
-    });
-  }, [user]);
+  // A tenant may have active leases with more than one PM/property/unit —
+  // aggregate across all of them instead of resolving down to a single one.
+  const pmIds = useMemo(
+    () => Array.from(new Set(activeLeases.map((l) => l.lease.pmId).filter(Boolean))),
+    [activeLeases],
+  );
+  const propertyIds = useMemo(
+    () => new Set(activeLeases.map((l) => l.lease.propertyId)),
+    [activeLeases],
+  );
+  const unitIds = useMemo(
+    () => new Set(activeLeases.map((l) => l.lease.unitId)),
+    [activeLeases],
+  );
 
-  // Fallback: resolve pmId from leaseTerms
+  // Query notices from every PM the tenant has an active lease with.
   useEffect(() => {
-    if (!user) return;
-    const q = query(leaseTermsCol(), where("tenantId", "==", user.uid));
-    return onSnapshot(q, (snap) => {
-      const sorted = snap.docs
-        .map((d) => d.data())
-        .sort((a, b) => b.createdAt - a.createdAt);
-      if (sorted[0]?.pmId) setPmId((prev) => prev ?? sorted[0].pmId);
-    });
-  }, [user]);
-
-  // Resolve propertyId and unitId from unit assignment
-  useEffect(() => {
-    if (!user) return;
-    const q = query(unitsCol(), where("currentTenantId", "==", user.uid));
-    return onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const unitSnap = snap.docs[0];
-        setPropertyId(unitSnap.data().propertyId);
-        setUnitId(unitSnap.id);
-      }
-    });
-  }, [user]);
-
-  // Query notices for this tenant's PM
-  useEffect(() => {
-    if (!pmId) { setRawNotices([]); return; }
-    const q = query(noticesCol(), where("pmId", "==", pmId));
+    if (pmIds.length === 0) { setRawNotices([]); return; }
+    const q = query(noticesCol(), where("pmId", "in", pmIds));
     return onSnapshot(q, (snap) => {
       setRawNotices(snap.docs.map((d) => ({ ...d.data(), id: d.id } as NoticeDoc)));
     });
-  }, [pmId]);
+  }, [pmIds]);
 
   const uid = user?.uid ?? null;
 
@@ -70,14 +47,14 @@ export function useMyNotices() {
     if (!uid) return [];
     const filtered = rawNotices.filter((n) => {
       if (n.scope === "all") return true;
-      if (n.scope === "property" && propertyId && n.scopeId === propertyId) return true;
-      if (n.scope === "unit" && unitId && n.scopeId === unitId) return true;
+      if (n.scope === "property" && n.scopeId && propertyIds.has(n.scopeId)) return true;
+      if (n.scope === "unit" && n.scopeId && unitIds.has(n.scopeId)) return true;
       return false;
     });
     return filtered
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((n) => ({ ...n, unread: !(n.readBy ?? []).includes(uid) }));
-  }, [rawNotices, propertyId, unitId, uid]);
+  }, [rawNotices, propertyIds, unitIds, uid]);
 
   const unreadCount = useMemo(() => notices.filter((n) => n.unread).length, [notices]);
 

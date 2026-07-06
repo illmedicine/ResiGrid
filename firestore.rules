@@ -84,7 +84,10 @@ service cloud.firestore {
         isTeamMemberFor(resource.data.pmId) ||
         get(/databases/$(database)/documents/listings/$(resource.data.listingId)).data.ownerId == request.auth.uid
       );
-      allow delete: if false;
+      allow delete: if isSignedIn() && (
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
     }
 
     match /tenantInterests/{interestId} {
@@ -309,7 +312,11 @@ service cloud.firestore {
         isTeamMemberFor(resource.data.pmId)
       );
       allow create: if isSignedIn() && request.resource.data.uploaderId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
+      allow delete: if isSignedIn() && (
+        resource.data.uploaderId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
       allow update: if false;
     }
   }

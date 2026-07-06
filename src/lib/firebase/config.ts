@@ -2,6 +2,7 @@ import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
 import {
   type Auth,
   browserLocalPersistence,
+  browserPopupRedirectResolver,
   browserSessionPersistence,
   getAuth,
   inMemoryPersistence,
@@ -60,6 +61,9 @@ const coinDropApp: FirebaseApp =
 // to persist there instead of degrading gracefully. initializeAuth() can
 // only run once per app instance, so fall back to the already-initialized
 // getAuth() on repeat module evaluation (Next.js Fast Refresh in dev).
+// popupRedirectResolver must be passed explicitly here — unlike getAuth(),
+// initializeAuth() does not wire it up automatically, and omitting it makes
+// every signInWithPopup() call throw auth/argument-error.
 export const auth: Auth = (() => {
   try {
     return initializeAuth(firebaseApp, {
@@ -69,6 +73,7 @@ export const auth: Auth = (() => {
         browserSessionPersistence,
         inMemoryPersistence,
       ],
+      popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
     return getAuth(firebaseApp);

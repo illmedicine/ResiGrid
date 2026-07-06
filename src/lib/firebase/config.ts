@@ -1,5 +1,13 @@
 import { type FirebaseApp, getApps, initializeApp } from "firebase/app";
-import { type Auth, getAuth } from "firebase/auth";
+import {
+  type Auth,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  getAuth,
+  inMemoryPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
+} from "firebase/auth";
 import { type Firestore, getFirestore } from "firebase/firestore";
 import { type FirebaseStorage, getStorage } from "firebase/storage";
 import { type Functions, getFunctions } from "firebase/functions";
@@ -9,7 +17,17 @@ import { type Functions, getFunctions } from "firebase/functions";
 // only in functions/.env.local and Firebase secrets, never here.
 const firebaseConfig = {
   apiKey: "AIzaSyDOXEzMBE1uGRgIBFs4u0rJU95WOgMW95I",
-  authDomain: "resigrid-96c9c.firebaseapp.com",
+  // Must match the app's own domain, not the default *.firebaseapp.com —
+  // otherwise the Google sign-in popup bounces through firebaseapp.com and
+  // accounts.google.com before returning to resigrid.co, and Chrome's Bounce
+  // Tracking Mitigations (far more aggressive in Incognito/private browsing,
+  // where third-party storage is blocked by default) can clear Firebase's
+  // popup auth state mid-flow, silently leaving the user half signed-in:
+  // request.auth is null for Firestore writes, and any UI gated on the
+  // tenant/PM's auth state stops responding. Firebase Hosting automatically
+  // serves the /__/auth/* handler on any connected custom domain, so this
+  // just works since resigrid.co is already a Firebase Hosting domain.
+  authDomain: "resigrid.co",
   projectId: "resigrid-96c9c",
   storageBucket: "resigrid-96c9c.firebasestorage.app",
   messagingSenderId: "518982670558",
@@ -36,7 +54,26 @@ const coinDropApp: FirebaseApp =
   getApps().find((a) => a.name === "coindrop") ??
   initializeApp(coinDropConfig, "coindrop");
 
-export const auth: Auth = getAuth(firebaseApp);
+// Explicit persistence fallback chain — some private/incognito modes (e.g.
+// Safari Private Browsing) block or heavily restrict IndexedDB, which is
+// Auth's default persistence. Without a fallback, auth state silently fails
+// to persist there instead of degrading gracefully. initializeAuth() can
+// only run once per app instance, so fall back to the already-initialized
+// getAuth() on repeat module evaluation (Next.js Fast Refresh in dev).
+export const auth: Auth = (() => {
+  try {
+    return initializeAuth(firebaseApp, {
+      persistence: [
+        indexedDBLocalPersistence,
+        browserLocalPersistence,
+        browserSessionPersistence,
+        inMemoryPersistence,
+      ],
+    });
+  } catch {
+    return getAuth(firebaseApp);
+  }
+})();
 export const db: Firestore = getFirestore(firebaseApp);
 export const storage: FirebaseStorage = getStorage(coinDropApp);
 export const functions: Functions = getFunctions(firebaseApp);

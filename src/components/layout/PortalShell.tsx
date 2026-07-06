@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/firebase/hooks";
 import { Logo } from "@/components/ui/Logo";
 import { getPrestigeTier } from "@/lib/rge/prestige";
 import { db } from "@/lib/firebase/config";
+import { useHardNavFallback } from "@/lib/hooks/useHardNavFallback";
 import type { ReputationScoreDoc } from "@/lib/types/models";
 
 export interface PortalNavItem {
@@ -172,6 +173,7 @@ export function PortalShell({ navItems, children, notificationBadge, subHeader }
   const pathname = usePathname();
   const { user, userDoc } = useAuth();
   const [rgeScore, setRgeScore] = useState<number>(0);
+  const hardNavFallback = useHardNavFallback();
 
   useEffect(() => {
     if (!user || userDoc?.role !== "tenant") return;
@@ -186,7 +188,7 @@ export function PortalShell({ navItems, children, notificationBadge, subHeader }
   const photoURL = user?.photoURL ?? userDoc?.photoURL;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col" onClickCapture={hardNavFallback}>
       {/* Desktop nav */}
       <header className="hidden md:flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-2 z-40">
         <Logo size={72} href="/" />

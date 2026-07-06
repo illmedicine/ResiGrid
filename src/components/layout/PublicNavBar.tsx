@@ -1,9 +1,13 @@
+"use client";
+
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
+import { useHardNavFallback } from "@/lib/hooks/useHardNavFallback";
 
 export function PublicNavBar() {
+  const hardNavFallback = useHardNavFallback();
   return (
-    <div className="relative z-40 overflow-visible">
+    <div className="relative z-40 overflow-visible" onClickCapture={hardNavFallback}>
       <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:px-8">
         {/* Spacer reserves room for the absolutely-positioned logo */}
         <div className="w-[110px] shrink-0 md:w-[260px]" />

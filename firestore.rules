@@ -45,13 +45,19 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid ||
         canAccessProperty(resource.data.ownerId, propertyId)
       );
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid &&
+        resource.data.unitIds.size() == 0;
     }
 
     match /units/{unitId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.propertyId != null;
-      allow update, delete: if isSignedIn();
+      allow update: if isSignedIn();
+      // A unit with a tenant assigned can't be deleted — the tenant must be
+      // removed first (see UnitRow.tsx's "Remove tenant" action).
+      allow delete: if isSignedIn() && (
+        !("currentTenantId" in resource.data) || resource.data.currentTenantId == null
+      );
     }
 
     match /listings/{listingId} {

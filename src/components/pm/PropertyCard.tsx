@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { arrayRemove, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { arrayRemove, deleteDoc, doc, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { Building2, MapPin, Trash2 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/firebase/hooks";
+import { unitsCol } from "@/lib/firebase/firestore";
 import { Card, CardContent } from "@/components/ui/Card";
 import type { PropertyDoc } from "@/lib/types/models";
 
@@ -13,14 +14,33 @@ export function PropertyCard({ property }: { property: PropertyDoc }) {
   const { user } = useAuth();
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [hasRealUnits, setHasRealUnits] = useState(property.unitIds.length > 0);
 
-  const canDelete = property.unitIds.length === 0;
+  // Don't trust property.unitIds alone — it can desync from the real units
+  // collection (this is exactly what let a property with a real occupied
+  // unit get deleted while it incorrectly looked empty). Verify live.
+  useEffect(() => {
+    let cancelled = false;
+    getDocs(query(unitsCol(), where("propertyId", "==", property.id))).then((snap) => {
+      if (!cancelled) setHasRealUnits(!snap.empty);
+    });
+    return () => { cancelled = true; };
+  }, [property.id]);
+
+  const canDelete = !hasRealUnits;
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault();
     if (!user) return;
     setDeleting(true);
     try {
+      const realUnits = await getDocs(query(unitsCol(), where("propertyId", "==", property.id)));
+      if (!realUnits.empty) {
+        setHasRealUnits(true);
+        setDeleting(false);
+        setConfirm(false);
+        return;
+      }
       await deleteDoc(doc(db, "properties", property.id));
       await updateDoc(doc(db, "propertyManagers", user.uid), {
         propertyIds: arrayRemove(property.id),

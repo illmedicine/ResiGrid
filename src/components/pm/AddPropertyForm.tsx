@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,7 +28,12 @@ export function AddPropertyForm({
   ownerId: string;
   onCreated?: (propertyId: string) => void;
 }) {
-  const stableId = useId().replace(/:/g, "").slice(0, 20);
+  // Generate a stable random Firestore doc ref once per mount — useId() is
+  // deterministic based on tree position, so reopening this form (unmount +
+  // remount at the same JSX position) produced the SAME id every time,
+  // silently overwriting the previously-created property via setDoc (same
+  // bug already fixed for listings in PublishListingForm.tsx).
+  const propertyRef = useMemo(() => doc(propertiesCol()), []);
   const [photos, setPhotos] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -43,9 +48,8 @@ export function AddPropertyForm({
     setError(null);
     setSubmitting(true);
     try {
-      const ref = doc(propertiesCol(), stableId);
-      await setDoc(ref, {
-        id: ref.id,
+      await setDoc(propertyRef, {
+        id: propertyRef.id,
         ownerId,
         name: values.name,
         addressLine1: values.addressLine1,
@@ -59,7 +63,7 @@ export function AddPropertyForm({
       });
       reset();
       setPhotos([]);
-      onCreated?.(ref.id);
+      onCreated?.(propertyRef.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add property.");
     } finally {
@@ -93,7 +97,7 @@ export function AddPropertyForm({
           Property photos <span className="font-normal text-neutral-500">(optional)</span>
         </p>
         <PhotoUpload
-          storagePath={`resigrid/properties/${stableId}`}
+          storagePath={`resigrid/properties/${propertyRef.id}`}
           uploadedUrls={photos}
           onChange={setPhotos}
           maxPhotos={8}

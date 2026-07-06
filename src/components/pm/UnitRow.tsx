@@ -38,6 +38,7 @@ export function UnitRow({ unit, property, activeListing }: {
   const [unitPhotos, setUnitPhotos] = useState<string[]>(unit.photos ?? []);
   const [savingPhotos, setSavingPhotos] = useState(false);
   const tenantName = useUserDisplayName(unit.currentTenantId);
+  const canDelete = !unit.currentTenantId;
 
   const editForm = useForm<EditInput, unknown, EditValues>({
     resolver: zodResolver(editSchema),
@@ -126,27 +127,29 @@ export function UnitRow({ unit, property, activeListing }: {
             >
               <Edit2 className="h-3.5 w-3.5" />
             </button>
-            {!confirmDelete ? (
-              <button
-                type="button"
-                title="Delete unit"
-                onClick={() => setConfirmDelete(true)}
-                className="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-red-600">Delete?</span>
-                <button type="button" onClick={handleDelete} disabled={deleting}
-                  className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700 disabled:opacity-50">
-                  {deleting ? "…" : "Yes"}
+            {canDelete && (
+              !confirmDelete ? (
+                <button
+                  type="button"
+                  title="Delete unit"
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => setConfirmDelete(false)}
-                  className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-50">
-                  No
-                </button>
-              </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-red-600">Delete?</span>
+                  <button type="button" onClick={handleDelete} disabled={deleting}
+                    className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700 disabled:opacity-50">
+                    {deleting ? "…" : "Yes"}
+                  </button>
+                  <button type="button" onClick={() => setConfirmDelete(false)}
+                    className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-50">
+                    No
+                  </button>
+                </div>
+              )
             )}
           </div>
         </div>

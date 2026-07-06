@@ -18,17 +18,16 @@ import { type Functions, getFunctions } from "firebase/functions";
 // only in functions/.env.local and Firebase secrets, never here.
 const firebaseConfig = {
   apiKey: "AIzaSyDOXEzMBE1uGRgIBFs4u0rJU95WOgMW95I",
-  // Must match the app's own domain, not the default *.firebaseapp.com —
-  // otherwise the Google sign-in popup bounces through firebaseapp.com and
-  // accounts.google.com before returning to resigrid.co, and Chrome's Bounce
-  // Tracking Mitigations (far more aggressive in Incognito/private browsing,
-  // where third-party storage is blocked by default) can clear Firebase's
-  // popup auth state mid-flow, silently leaving the user half signed-in:
-  // request.auth is null for Firestore writes, and any UI gated on the
-  // tenant/PM's auth state stops responding. Firebase Hosting automatically
-  // serves the /__/auth/* handler on any connected custom domain, so this
-  // just works since resigrid.co is already a Firebase Hosting domain.
-  authDomain: "resigrid.co",
+  // REVERTED to the default *.firebaseapp.com — switching this to resigrid.co
+  // (to avoid Chrome's Bounce Tracking Mitigations breaking the sign-in
+  // popup, see git history) requires first adding
+  // https://resigrid.co/__/auth/handler to the "Authorized redirect URIs" of
+  // the OAuth 2.0 client in Google Cloud Console (APIs & Services →
+  // Credentials → the auto-created "Web client for Firebase"). Without that,
+  // Google rejects every sign-in with "Error 400: redirect_uri_mismatch" for
+  // ALL users, not just Incognito. Do that step first, verify it in the
+  // Cloud Console, then re-apply authDomain: "resigrid.co" here.
+  authDomain: "resigrid-96c9c.firebaseapp.com",
   projectId: "resigrid-96c9c",
   storageBucket: "resigrid-96c9c.firebasestorage.app",
   messagingSenderId: "518982670558",

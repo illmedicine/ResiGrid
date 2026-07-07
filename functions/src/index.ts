@@ -18,3 +18,4 @@ export { onNoticeCreated } from "./notifications/onNoticeCreated";
 export { onLeaseTermsCreated, onLeaseTermsUpdated } from "./notifications/onLeaseTermsChanged";
 export { onMaintenanceRequestUpdated } from "./notifications/onMaintenanceUpdated";
 export { createFirstRentInvoice, generateRecurringRentInvoices } from "./payments/rentInvoices";
+export { adminGetOverview, adminSetUserRole } from "./admin/adminPortal";

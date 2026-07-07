@@ -13,16 +13,15 @@ function loadSquare(): { Client: typeof SquareClient; Environment: typeof Square
   return require("square");
 }
 
-export const SQUARE_SECRETS = [
-  "SQUARE_ACCESS_TOKEN",
-  "SQUARE_LOCATION_ID",
-] as const;
+// Only true credentials go here — Secret Manager-backed secrets can't share a
+// name with a plain env var, and functions/.env (written by CI) already sets
+// SQUARE_LOCATION_ID / SQUARE_APPLICATION_ID / SQUARE_OAUTH_REDIRECT_URI as
+// plain vars, which isn't secret info anyway.
+export const SQUARE_SECRETS = ["SQUARE_ACCESS_TOKEN"] as const;
 
 export const SQUARE_OAUTH_SECRETS = [
   ...SQUARE_SECRETS,
-  "SQUARE_APPLICATION_ID",
   "SQUARE_APPLICATION_SECRET",
-  "SQUARE_OAUTH_REDIRECT_URI",
 ] as const;
 
 function resolveEnvironment(): SquareEnvironment {

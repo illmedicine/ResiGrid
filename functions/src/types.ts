@@ -240,6 +240,14 @@ export interface PMSubscriptionDoc {
   squareCustomerId?: string;
   /** Square Card ID (card on file) for recurring billing. */
   squareCardId?: string;
+  /** Set when this PM claimed a platform promotion (e.g. "grid_early_adopter"). */
+  promo?: string;
+  promoGrantedAt?: number;
+  /** Set when an admin revokes the promotion — PM portal access ends and all
+   * property data is permanently deleted 30 days after this timestamp. */
+  promoRevokedAt?: number;
+  /** Set once the 30-day post-revocation purge has run, to avoid re-processing. */
+  promoEnforcedAt?: number;
 }
 
 export type TeamInviteStatus = "pending" | "accepted" | "revoked";

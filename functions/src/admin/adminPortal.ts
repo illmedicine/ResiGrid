@@ -1,6 +1,7 @@
 import { onCall, HttpsError, type CallableRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
+import { PROMO_ID, PROMO_NAME, TOTAL_SLOTS, restorePromo, revokePromo } from "../promotions/earlyAdopter";
 import type {
   LeaseTermsDoc,
   MaintenanceRequestDoc,
@@ -51,6 +52,8 @@ interface AdminUserSummary {
   subscriptionActive?: boolean;
   subscriptionTier?: string;
   totalPaidToPlatform?: number;
+  promo?: string;
+  promoRevokedAt?: number;
 }
 
 interface AdminRecentPayment {
@@ -79,6 +82,7 @@ export const adminGetOverview = onCall<{ pin: string }>(
       maintenanceSnap,
       subsSnap,
       scoresSnap,
+      promoSnap,
     ] = await Promise.all([
       db.collection("users").get(),
       db.collection("properties").get(),
@@ -90,6 +94,7 @@ export const adminGetOverview = onCall<{ pin: string }>(
       db.collection("maintenanceRequests").get(),
       db.collection("pmSubscriptions").get(),
       db.collection("reputationScores").get(),
+      db.collection("promotions").doc(PROMO_ID).get(),
     ]);
 
     // The admin account itself shouldn't count as a tenant/PM in metrics.
@@ -143,6 +148,8 @@ export const adminGetOverview = onCall<{ pin: string }>(
           subscriptionActive: sub?.active ?? false,
           subscriptionTier: sub?.tier,
           totalPaidToPlatform: sub?.totalPaid ?? 0,
+          promo: sub?.promo,
+          promoRevokedAt: sub?.promoRevokedAt,
         });
       } else {
         tenants.push({
@@ -185,6 +192,8 @@ export const adminGetOverview = onCall<{ pin: string }>(
         activeSubscriptionCount: [...subs.values()].filter((s) => s.active).length,
         pendingVoucherCount: vouchers.filter((v) => v.status === "pending").length,
         openMaintenanceCount: maintenance.filter((m) => OPEN_MAINTENANCE.has(m.status)).length,
+        promoTotalSlots: TOTAL_SLOTS,
+        promoClaimedCount: promoSnap.exists ? (promoSnap.data()?.claimedCount ?? 0) : 0,
       },
       tenants: tenants.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
       propertyManagers: propertyManagers.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
@@ -211,6 +220,33 @@ export const adminSetUserRole = onCall<{ pin: string; uid: string; role: string 
       by: request.auth?.token?.email,
       uid,
       role,
+    });
+    return { ok: true };
+  },
+);
+
+/** Grants or revokes the Grid Early Adopter promotion for a PM. Revoking
+ * starts a 30-day grace period, after which the daily
+ * enforcePromoRevocations job deletes all their property data and demotes
+ * the account to tenant. */
+export const adminSetPromoAccess = onCall<{ pin: string; uid: string; action: string }>(
+  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
+  async (request) => {
+    assertAdmin(request);
+
+    const { uid, action } = request.data;
+    if (!uid || (action !== "revoke" && action !== "restore")) {
+      throw new HttpsError("invalid-argument", "Provide a uid and an action of revoke or restore.");
+    }
+
+    if (action === "revoke") {
+      await revokePromo(uid);
+    } else {
+      await restorePromo(uid);
+    }
+    logger.warn(`adminSetPromoAccess: ${PROMO_NAME} ${action}d`, {
+      by: request.auth?.token?.email,
+      uid,
     });
     return { ok: true };
   },

@@ -1,5 +1,6 @@
+import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
-import type { LeaseDoc, PaymentDoc, RentInvoiceDoc } from "../types";
+import type { LeaseDoc, PaymentDoc, RentInvoiceDoc, UserDoc } from "../types";
 
 interface RecordPaymentParams {
   tenantId: string;
@@ -60,5 +61,44 @@ export async function recordCompletedPayment(params: RecordPaymentParams): Promi
       paidAt: now,
       paymentId: paymentRef.id,
     });
+  }
+
+  // Auto-file a receipt into the tenant's documents. The receipt shows the
+  // PM's business name (propertyManagers/{pmId}.businessName, falling back
+  // to their display name) and links to the printable /receipt page. Adding
+  // it to sharedDocuments also bumps the tenant's docs-on-file count, which
+  // feeds their RGE engagement bonus via recalcScoreOnSharedDocumentChanged.
+  // Non-fatal: a receipt failure must never fail the payment itself.
+  if (pmId) {
+    try {
+      const [pmProfileSnap, pmUserSnap] = await Promise.all([
+        db.collection("propertyManagers").doc(pmId).get(),
+        db.collection("users").doc(pmId).get(),
+      ]);
+      const businessName =
+        (pmProfileSnap.data() as { businessName?: string } | undefined)?.businessName?.trim() ||
+        (pmUserSnap.data() as UserDoc | undefined)?.displayName ||
+        "Your property manager";
+      const dateStr = new Date(now).toLocaleDateString("en-US", {
+        month: "short", day: "numeric", year: "numeric",
+      });
+
+      const receiptRef = db.collection("sharedDocuments").doc();
+      await receiptRef.set({
+        id: receiptRef.id,
+        uploaderId: pmId,
+        uploaderRole: "property_manager",
+        tenantId,
+        pmId,
+        name: `Rent Receipt — $${amount.toLocaleString("en-US")} — ${dateStr} — ${businessName}`,
+        url: `https://resigrid.co/receipt/?id=${paymentRef.id}`,
+        mimeType: "text/html",
+        sizeBytes: 0,
+        category: "other",
+        createdAt: now,
+      });
+    } catch (err) {
+      logger.error("recordCompletedPayment: receipt creation failed", err);
+    }
   }
 }

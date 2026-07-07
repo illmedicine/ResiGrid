@@ -39,6 +39,8 @@ interface AdminUserSummary {
   subscriptionActive?: boolean;
   subscriptionTier?: string;
   totalPaidToPlatform?: number;
+  promo?: string;
+  promoRevokedAt?: number;
 }
 
 interface AdminRecentPayment {
@@ -67,6 +69,8 @@ interface Overview {
     activeSubscriptionCount: number;
     pendingVoucherCount: number;
     openMaintenanceCount: number;
+    promoTotalSlots: number;
+    promoClaimedCount: number;
   };
   tenants: AdminUserSummary[];
   propertyManagers: AdminUserSummary[];
@@ -101,6 +105,29 @@ export default function AdminPortalPage() {
       setError(err instanceof Error ? err.message : "Access denied.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePromoChange(target: AdminUserSummary) {
+    if (!activePin) return;
+    const revoking = !target.promoRevokedAt;
+    const msg = revoking
+      ? `REVOKE Early Adopter access for ${target.displayName || target.email}?\n\nThey keep access for 30 days, then their PM portal access ends and ALL their property data is permanently deleted.`
+      : `Restore Early Adopter access for ${target.displayName || target.email}? This cancels the pending 30-day data deletion.`;
+    if (!window.confirm(msg)) return;
+    setRoleBusy(target.uid);
+    setError(null);
+    try {
+      const call = httpsCallable<{ pin: string; uid: string; action: string }, { ok: boolean }>(
+        functions,
+        "adminSetPromoAccess",
+      );
+      await call({ pin: activePin, uid: target.uid, action: revoking ? "revoke" : "restore" });
+      await loadOverview(activePin);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Promo change failed.");
+    } finally {
+      setRoleBusy(null);
     }
   }
 
@@ -236,6 +263,13 @@ export default function AdminPortalPage() {
           <Metric icon={Activity} label="Published Listings" value={m.publishedListingCount} />
           <Metric icon={Activity} label="Pending Vouchers" value={m.pendingVoucherCount} />
           <Metric icon={Wrench} label="Open Maintenance" value={m.openMaintenanceCount} alert={m.openMaintenanceCount > 0} />
+          <Metric
+            icon={Users}
+            label="Early Adopter Promo"
+            value={`${m.promoClaimedCount}/${m.promoTotalSlots} claimed`}
+            sub={`${Math.max(0, m.promoTotalSlots - m.promoClaimedCount)} free-year slots left`}
+            highlight
+          />
         </section>
 
         {/* Property managers */}
@@ -248,6 +282,7 @@ export default function AdminPortalPage() {
           ]}
           roleBusy={roleBusy}
           onRoleChange={handleRoleChange}
+          onPromoChange={handlePromoChange}
         />
 
         {/* Tenants */}
@@ -342,12 +377,14 @@ function UserTable({
   columns,
   roleBusy,
   onRoleChange,
+  onPromoChange,
 }: {
   title: string;
   users: AdminUserSummary[];
   columns: (u: AdminUserSummary) => string[];
   roleBusy: string | null;
   onRoleChange: (u: AdminUserSummary) => void;
+  onPromoChange?: (u: AdminUserSummary) => void;
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -376,10 +413,36 @@ function UserTable({
                 ))}
               </div>
               <span className="text-xs text-white/30">Joined {fmtDate(u.createdAt)}</span>
+              {u.promo === "grid_early_adopter" && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    u.promoRevokedAt
+                      ? "bg-red-500/20 text-red-300"
+                      : "bg-gradient-to-r from-orange-500/30 to-yellow-500/30 text-orange-300"
+                  }`}
+                >
+                  {u.promoRevokedAt
+                    ? `⚡ EARLY ADOPTER — DELETES ${fmtDate(u.promoRevokedAt + 30 * 24 * 60 * 60 * 1000)}`
+                    : "⚡ GRID EARLY ADOPTER"}
+                </span>
+              )}
               <div className="ml-auto flex items-center gap-2">
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/60">
                   {u.role === "property_manager" ? "PM" : "Tenant"}
                 </span>
+                {onPromoChange && u.promo === "grid_early_adopter" && (
+                  <button
+                    onClick={() => onPromoChange(u)}
+                    disabled={roleBusy === u.uid}
+                    className={`rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50 ${
+                      u.promoRevokedAt
+                        ? "border-green-400/40 text-green-300 hover:bg-green-500/10"
+                        : "border-red-400/40 text-red-300 hover:bg-red-500/10"
+                    }`}
+                  >
+                    {roleBusy === u.uid ? "…" : u.promoRevokedAt ? "Restore Promo" : "Revoke Promo"}
+                  </button>
+                )}
                 <button
                   onClick={() => onRoleChange(u)}
                   disabled={roleBusy === u.uid}

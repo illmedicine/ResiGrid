@@ -104,6 +104,17 @@ export const renewAnnualSubscriptions = onSchedule(
 
       const msUntilExpiry = sub.tierExpiresAt - now;
 
+      // Promo subscriptions (e.g. Grid Early Adopter free year) never
+      // auto-renew into a charge — at expiry they deactivate so the PM
+      // picks a paid plan deliberately via checkout.
+      if (sub.promo) {
+        if (msUntilExpiry <= 0) {
+          await subDoc.ref.update({ active: false, updatedAt: now });
+          logger.info(`renewAnnualSubscriptions: promo year ended for ${sub.uid} — deactivated without charging`);
+        }
+        continue;
+      }
+
       // Reminder window: 30 days before expiry (but not yet expired).
       if (msUntilExpiry > 0 && msUntilExpiry <= MS_30_DAYS) {
         logger.info(`renewAnnualSubscriptions: renewal reminder due for ${sub.uid} — expires in ${Math.ceil(msUntilExpiry / 86400000)} days`);

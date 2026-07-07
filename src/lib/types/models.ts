@@ -12,6 +12,8 @@ export interface UserDoc {
   teamAdminId?: string;
   /** Properties this team member has been granted access to */
   teamPropertyIds?: string[];
+  /** How many times the Grid Early Adopter welcome celebration has shown (max 3). */
+  promoCelebrations?: number;
 }
 
 export type TeamInviteStatus = "pending" | "accepted" | "revoked";
@@ -354,6 +356,12 @@ export interface PMSubscriptionDoc {
   invitedVia?: string;
   squareCustomerId?: string;
   squareCardId?: string;
+  /** Set when this PM claimed a platform promotion (e.g. "grid_early_adopter"). */
+  promo?: string;
+  promoGrantedAt?: number;
+  /** Set when an admin revokes the promotion — PM portal access ends and all
+   * property data is permanently deleted 30 days after this timestamp. */
+  promoRevokedAt?: number;
 }
 
 export type UtilityResponsibility = "tenant" | "landlord" | "split" | "na";

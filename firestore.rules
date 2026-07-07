@@ -153,6 +153,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public promo counters (e.g. Grid Early Adopter slots remaining) — shown
+    // on the pre-auth landing page, so read must not require sign-in. Written
+    // only by Cloud Functions.
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /rentInvoices/{invoiceId} {
       allow read: if isSignedIn() && (
         resource.data.tenantId == request.auth.uid ||

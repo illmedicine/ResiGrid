@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { Bell, ChevronDown, Landmark, LogOut, Settings, Zap, type LucideIcon } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils/cn";
 import { signOut } from "@/lib/firebase/auth";
@@ -12,6 +12,8 @@ import { Logo } from "@/components/ui/Logo";
 import { getPrestigeTier } from "@/lib/rge/prestige";
 import { db } from "@/lib/firebase/config";
 import { useHardNavFallback } from "@/lib/hooks/useHardNavFallback";
+import { useSquareConnected } from "@/lib/hooks/useSquareConnected";
+import { usePMSubscription } from "@/lib/hooks/usePMSubscription";
 import type { ReputationScoreDoc } from "@/lib/types/models";
 
 export interface PortalNavItem {
@@ -75,9 +77,13 @@ interface ProfileDropdownProps {
   displayName?: string;
   prestige: { label: string; emoji: string; badgeClass: string } | null;
   compact?: boolean;
+  /** PM only: whether Square payouts are connected (null = loading / not a PM). */
+  paymentsConnected?: boolean | null;
+  /** PM only: Grid Early Adopter promo member. */
+  earlyAdopter?: boolean;
 }
 
-function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compact }: ProfileDropdownProps) {
+function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compact, paymentsConnected, earlyAdopter }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -96,7 +102,18 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-neutral-100"
       >
-        <UserAvatar photoURL={photoURL} displayName={displayName} />
+        <span className="relative">
+          <UserAvatar photoURL={photoURL} displayName={displayName} />
+          {paymentsConnected != null && (
+            <span
+              title={paymentsConnected ? "Receiving payments" : "Payouts not connected"}
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white",
+                paymentsConnected ? "bg-green-500" : "bg-amber-400",
+              )}
+            />
+          )}
+        </span>
         {!compact && (
           <>
             <div className="flex flex-col items-start leading-tight">
@@ -146,6 +163,29 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
               <hr className="mx-3 border-neutral-100" />
             </>
           )}
+          {earlyAdopter && (
+            <div className="px-4 pb-1 pt-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-navy-900 px-2 py-0.5 text-[9px] font-bold text-orange-400">
+                <Zap className="h-3 w-3" />
+                GRID EARLY ADOPTER
+              </span>
+            </div>
+          )}
+          {paymentsConnected != null && (
+            <Link
+              href="/pm/payouts"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50"
+            >
+              <Landmark className="h-4 w-4" />
+              <span className="flex flex-col leading-tight">
+                <span>Payments</span>
+                <span className={cn("text-[10px] font-semibold", paymentsConnected ? "text-green-600" : "text-amber-600")}>
+                  {paymentsConnected ? "● Receiving payments" : "● Set up payouts"}
+                </span>
+              </span>
+            </Link>
+          )}
           <Link
             href={settingsHref}
             onClick={() => setOpen(false)}
@@ -174,6 +214,10 @@ export function PortalShell({ navItems, children, notificationBadge, subHeader }
   const { user, userDoc } = useAuth();
   const [rgeScore, setRgeScore] = useState<number>(0);
   const hardNavFallback = useHardNavFallback();
+  const isPM = userDoc?.role === "property_manager";
+  const { connected: paymentsConnected } = useSquareConnected(Boolean(user) && isPM);
+  const { sub } = usePMSubscription(isPM ? user?.uid : undefined);
+  const earlyAdopter = sub?.promo === "grid_early_adopter" && !sub.promoRevokedAt;
 
   useEffect(() => {
     if (!user || userDoc?.role !== "tenant") return;
@@ -219,6 +263,8 @@ export function PortalShell({ navItems, children, notificationBadge, subHeader }
             photoURL={photoURL}
             displayName={userDoc?.displayName}
             prestige={prestige}
+            paymentsConnected={isPM ? paymentsConnected : undefined}
+            earlyAdopter={earlyAdopter}
           />
         </div>
       </header>
@@ -233,6 +279,8 @@ export function PortalShell({ navItems, children, notificationBadge, subHeader }
             photoURL={photoURL}
             displayName={userDoc?.displayName}
             prestige={prestige}
+            paymentsConnected={isPM ? paymentsConnected : undefined}
+            earlyAdopter={earlyAdopter}
             compact
           />
         </div>

@@ -18,4 +18,5 @@ export { onNoticeCreated } from "./notifications/onNoticeCreated";
 export { onLeaseTermsCreated, onLeaseTermsUpdated } from "./notifications/onLeaseTermsChanged";
 export { onMaintenanceRequestUpdated } from "./notifications/onMaintenanceUpdated";
 export { createFirstRentInvoice, generateRecurringRentInvoices } from "./payments/rentInvoices";
-export { adminGetOverview, adminSetUserRole } from "./admin/adminPortal";
+export { adminGetOverview, adminSetUserRole, adminSetPromoAccess } from "./admin/adminPortal";
+export { claimEarlyAdopterPromo, enforcePromoRevocations } from "./promotions/earlyAdopter";

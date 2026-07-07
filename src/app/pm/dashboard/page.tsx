@@ -19,6 +19,7 @@ import { usePMSubscription } from "@/lib/hooks/usePMSubscription";
 import { Card, CardContent } from "@/components/ui/Card";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 import { PMBadgeSection } from "@/components/pm/PMBadgeSection";
+import { EarlyAdopterWelcome } from "@/components/pm/EarlyAdopterWelcome";
 import { PM_TIERS } from "@/lib/pricing/fees";
 
 export default function PmDashboardPage() {
@@ -33,6 +34,9 @@ export default function PmDashboardPage() {
   return (
     <div className="relative flex flex-col gap-5">
       <WatermarkLogo size={500} opacity={0.04} />
+
+      {/* ── Grid Early Adopter (auto-claim, badge, celebration, revocation) ── */}
+      <EarlyAdopterWelcome />
 
       {/* ── Header ── */}
       <div>

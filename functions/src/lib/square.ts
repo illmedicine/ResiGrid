@@ -9,7 +9,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 // into each function call (Node caches it after the first real call) keeps
 // discovery fast regardless of how long constructing a client takes.
 function loadSquare(): { Client: typeof SquareClient; Environment: typeof SquareEnvironment } {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require("square");
 }
 
@@ -100,4 +100,44 @@ export function toMoneyCents(amountUsd: number) {
     amount: BigInt(Math.round(amountUsd * 100)),
     currency: "USD",
   };
+}
+
+// Square decline codes → messages a non-technical user can act on.
+// https://developer.squareup.com/docs/payment-card-support-by-country (error codes)
+const FRIENDLY_DECLINES: Record<string, string> = {
+  INSUFFICIENT_FUNDS:
+    "Your card was declined for insufficient funds. Add funds or try a different card.",
+  TRANSACTION_LIMIT:
+    "Your bank declined this charge because it exceeds a spending limit on your card. Try a different card, or ask your bank to raise the limit.",
+  CARD_EXPIRED: "This card has expired. Please use a different card.",
+  EXPIRATION_FAILURE: "The expiration date doesn't match this card. Double-check it and try again.",
+  INVALID_EXPIRATION: "The expiration date is invalid. Double-check it and try again.",
+  CVV_FAILURE: "The security code (CVV) doesn't match this card. Double-check the 3-digit code and try again.",
+  ADDRESS_VERIFICATION_FAILURE:
+    "The billing ZIP code doesn't match this card. Double-check it and try again.",
+  INVALID_CARD: "This card number appears to be invalid. Double-check it and try again.",
+  INVALID_CARD_DATA: "The card details appear to be invalid. Double-check them and try again.",
+  PAN_FAILURE: "This card number appears to be invalid. Double-check it and try again.",
+  CARD_NOT_SUPPORTED: "This card type isn't supported. Please use a different card.",
+  CARD_DECLINED_VERIFICATION_REQUIRED:
+    "Your bank requires additional verification for this charge. Try again, or contact your bank.",
+  GENERIC_DECLINE:
+    "Your bank declined this charge without giving a reason. Contact your bank, or try a different card.",
+  CARD_DECLINED: "Your bank declined this charge. Contact your bank, or try a different card.",
+};
+
+/** Extracts a user-friendly message from a Square SDK error. Square's
+ * ApiError.message is generic HTTP noise ("Response status code was not
+ * ok: 402.") — the actionable code lives in its `errors` array. Duck-typed
+ * rather than instanceof ApiError so this never forces an eager import of
+ * the square package (see loadSquare above). */
+export function friendlySquareError(err: unknown, fallback: string): string {
+  const errors =
+    (err as { errors?: Array<{ code?: string; detail?: string }> })?.errors ??
+    (err as { result?: { errors?: Array<{ code?: string; detail?: string }> } })?.result?.errors;
+  const first = Array.isArray(errors) ? errors[0] : undefined;
+  if (first?.code && FRIENDLY_DECLINES[first.code]) return FRIENDLY_DECLINES[first.code];
+  if (first?.detail) return first.detail;
+  if (err instanceof Error && err.message && !/status code/i.test(err.message)) return err.message;
+  return fallback;
 }

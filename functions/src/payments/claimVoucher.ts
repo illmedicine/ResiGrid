@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { db } from "../lib/firebaseAdmin";
-import { getSquareClientForAccessToken, toMoneyCents } from "../lib/square";
+import { friendlySquareError, getSquareClientForAccessToken, toMoneyCents } from "../lib/square";
 import { recordCompletedPayment } from "./recordPayment";
 import type { SquareConnectionDoc, VoucherDoc } from "../types";
 
@@ -60,10 +60,7 @@ export async function claimVoucherForUid(uid: string, claimToken: string): Promi
     if (!paymentId) throw new Error("Square did not return a payment ID.");
     squarePaymentId = paymentId;
   } catch (err) {
-    throw new HttpsError(
-      "aborted",
-      err instanceof Error ? err.message : "Unable to charge the saved card.",
-    );
+    throw new HttpsError("aborted", friendlySquareError(err, "Unable to charge the saved card."));
   }
 
   await voucherDoc.ref.update({

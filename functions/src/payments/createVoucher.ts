@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { db } from "../lib/firebaseAdmin";
 import {
+  friendlySquareError,
   getSquareClient,
   getSquareClientForAccessToken,
   toMoneyCents,
@@ -106,10 +107,7 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
         if (!paymentId) throw new Error("Square did not return a payment ID.");
         squarePaymentId = paymentId;
       } catch (err) {
-        throw new HttpsError(
-          "aborted",
-          err instanceof Error ? err.message : "Card was declined.",
-        );
+        throw new HttpsError("aborted", friendlySquareError(err, "Card was declined."));
       }
 
       const voucher: VoucherDoc = {
@@ -164,10 +162,7 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
       if (!newCardId) throw new Error("Square did not return a card ID.");
       cardId = newCardId;
     } catch (err) {
-      throw new HttpsError(
-        "aborted",
-        err instanceof Error ? err.message : "Unable to save card for payment.",
-      );
+      throw new HttpsError("aborted", friendlySquareError(err, "Unable to save card for payment."));
     }
 
     const claimToken = randomUUID();

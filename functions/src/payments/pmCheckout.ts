@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 import { db } from "../lib/firebaseAdmin";
 import {
+  friendlySquareError,
   getSquareClient,
   getSquareLocationId,
   toMoneyCents,
@@ -120,10 +121,7 @@ export const createPMSubscription = onCall<
       squarePaymentId = id;
     } catch (err) {
       logger.error("createPMSubscription payment step failed", err);
-      throw new HttpsError(
-        "aborted",
-        err instanceof Error ? err.message : "Card was declined.",
-      );
+      throw new HttpsError("aborted", friendlySquareError(err, "Card was declined."));
     }
 
     // ── Optionally create a property doc ─────────────────────────────

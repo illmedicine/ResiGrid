@@ -47,17 +47,24 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
 ];
 
+/** Points awarded per application/document a tenant has on file, capped. */
+const ENGAGEMENT_POINTS_PER_DOC = 20;
+const ENGAGEMENT_POINTS_CAP = 100;
+
 /**
  * Points-based RGE score with headroom above 100 — PRESTIGE_TIERS
  * (src/lib/rge/prestige.ts) goes up to 1000, so a flat 0-100 ratio could
  * never reach the top tiers. `activeLeaseCount` rewards tenants holding more
- * than one concurrent signed lease.
+ * than one concurrent signed lease. `docsSubmitted` (applications + shared
+ * documents on file, across all PMs) rewards tenants who've built out a
+ * fuller verified paper trail.
  */
 export function computeScore(
   onTimeCount: number,
   lateCount: number,
   currentStreak = 0,
   activeLeaseCount = 1,
+  docsSubmitted = 0,
 ): number {
   const total = onTimeCount + lateCount;
   const onTimeRatio = total === 0 ? 0 : onTimeCount / total;
@@ -65,7 +72,8 @@ export function computeScore(
   const volumePoints = Math.min(onTimeCount * 4, 400); // track record depth
   const streakPoints = Math.min(currentStreak * 8, 200); // consecutive streak
   const leasePoints = Math.max(0, activeLeaseCount - 1) * 60; // extra concurrent leases
-  return Math.round(basePoints + volumePoints + streakPoints + leasePoints);
+  const engagementPoints = Math.min(docsSubmitted * ENGAGEMENT_POINTS_PER_DOC, ENGAGEMENT_POINTS_CAP);
+  return Math.round(basePoints + volumePoints + streakPoints + leasePoints + engagementPoints);
 }
 
 export function earnedBadgeIds(

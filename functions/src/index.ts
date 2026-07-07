@@ -9,6 +9,7 @@ export { acceptTeamInvite } from "./team/acceptInvite";
 export { onTeamInviteCreated } from "./team/onInviteCreated";
 export { recalcReputationOnPayment } from "./reputation/recalc";
 export { awardResidentBadge } from "./reputation/awardResidentBadge";
+export { recalcScoreOnApplicationChanged, recalcScoreOnSharedDocumentChanged } from "./reputation/recalcOnDocsChanged";
 export { notifyOnMaintenanceRequest } from "./maintenance/notify";
 export { notifyOnNewMessage } from "./messaging/notify";
 export { onUserDocCreated } from "./auth/onUserCreate";

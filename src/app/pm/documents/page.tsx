@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
-import { ClipboardList, FileText, FolderOpen, Trash2 } from "lucide-react";
+import { deleteDoc, doc, getDoc, onSnapshot, query, where } from "firebase/firestore";
+import Link from "next/link";
+import { ClipboardList, FileText, FolderOpen, Home, Trash2 } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { applicationsCol, leaseTermsCol, sharedDocumentsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import type { ApplicationDoc, LeaseTermsDoc, SharedDocumentDoc } from "@/lib/types/models";
+import type { ApplicationDoc, LeaseTermsDoc, ListingDoc, PropertyDoc, SharedDocumentDoc, UnitDoc } from "@/lib/types/models";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -48,6 +48,10 @@ export default function PmDocumentsPage() {
   const [leases, setLeases] = useState<LeaseTermsDoc[]>([]);
   const [applications, setApplications] = useState<ApplicationDoc[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [listingsById, setListingsById] = useState<Record<string, ListingDoc>>({});
+  const [propertiesById, setPropertiesById] = useState<Record<string, PropertyDoc>>({});
+  const [unitsById, setUnitsById] = useState<Record<string, UnitDoc>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -93,6 +97,86 @@ export default function PmDocumentsPage() {
 
     return () => unsubs.forEach((u) => u());
   }, [user]);
+
+  // Resolve each application's listing (for propertyId/unitId) — cache by id.
+  useEffect(() => {
+    const missing = Array.from(new Set(applications.map((a) => a.listingId).filter(Boolean)))
+      .filter((id) => !(id in listingsById));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(missing.map((id) => getDoc(doc(db, "listings", id)))).then((snaps) => {
+      if (cancelled) return;
+      setListingsById((prev) => {
+        const next = { ...prev };
+        snaps.forEach((snap, i) => {
+          next[missing[i]] = snap.exists() ? ({ ...snap.data(), id: snap.id } as ListingDoc) : (undefined as unknown as ListingDoc);
+        });
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applications]);
+
+  // Resolve properties + units referenced by leases and (via listings) applications.
+  useEffect(() => {
+    const neededPropertyIds = new Set<string>();
+    const neededUnitIds = new Set<string>();
+
+    leases.forEach((l) => { neededPropertyIds.add(l.propertyId); neededUnitIds.add(l.unitId); });
+    applications.forEach((a) => {
+      const listing = listingsById[a.listingId];
+      if (listing?.propertyId) neededPropertyIds.add(listing.propertyId);
+      const unitId = a.unitId ?? listing?.unitId;
+      if (unitId) neededUnitIds.add(unitId);
+    });
+
+    const missingProps = Array.from(neededPropertyIds).filter((id) => id && !(id in propertiesById));
+    const missingUnits = Array.from(neededUnitIds).filter((id) => id && !(id in unitsById));
+    if (missingProps.length === 0 && missingUnits.length === 0) return;
+
+    let cancelled = false;
+    Promise.all([
+      Promise.all(missingProps.map((id) => getDoc(doc(db, "properties", id)))),
+      Promise.all(missingUnits.map((id) => getDoc(doc(db, "units", id)))),
+    ]).then(([propSnaps, unitSnaps]) => {
+      if (cancelled) return;
+      if (propSnaps.length > 0) {
+        setPropertiesById((prev) => {
+          const next = { ...prev };
+          propSnaps.forEach((snap, i) => {
+            next[missingProps[i]] = snap.exists() ? ({ ...snap.data(), id: snap.id } as PropertyDoc) : (undefined as unknown as PropertyDoc);
+          });
+          return next;
+        });
+      }
+      if (unitSnaps.length > 0) {
+        setUnitsById((prev) => {
+          const next = { ...prev };
+          unitSnaps.forEach((snap, i) => {
+            next[missingUnits[i]] = snap.exists() ? ({ ...snap.data(), id: snap.id } as UnitDoc) : (undefined as unknown as UnitDoc);
+          });
+          return next;
+        });
+      }
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leases, applications, listingsById]);
+
+  function propertyUnitForApplication(app: ApplicationDoc): { property?: PropertyDoc; unit?: UnitDoc } {
+    const listing = listingsById[app.listingId];
+    const propertyId = listing?.propertyId;
+    const unitId = app.unitId ?? listing?.unitId;
+    return {
+      property: propertyId ? propertiesById[propertyId] : undefined,
+      unit: unitId ? unitsById[unitId] : undefined,
+    };
+  }
+
+  function propertyUnitForLease(lease: LeaseTermsDoc): { property?: PropertyDoc; unit?: UnitDoc } {
+    return { property: propertiesById[lease.propertyId], unit: unitsById[lease.unitId] };
+  }
 
   async function handleDeleteApplication(id: string) {
     await deleteDoc(doc(db, "applications", id));
@@ -142,75 +226,120 @@ export default function PmDocumentsPage() {
               {applications.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <h3 className="text-sm font-semibold text-navy-900">Applications</h3>
-                  {applications.map((app) => (
-                    <Card key={app.id} className="p-4">
-                      <CardContent className="flex items-center justify-between gap-3 p-0">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <ClipboardList className="h-5 w-5 shrink-0 text-blue-500" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-navy-900">
-                              <TenantLabel tenantId={app.tenantId} />
-                            </p>
-                            <p className="text-xs text-neutral-500">Submitted {fmt(app.submittedAt)}</p>
-                            {app.documentUrls && app.documentUrls.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-2">
-                                {app.documentUrls.map((url, i) => (
-                                  <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-orange-600 hover:underline">
-                                    Attachment {i + 1}
-                                  </a>
-                                ))}
+                  {applications.map((app) => {
+                    const { property, unit } = propertyUnitForApplication(app);
+                    const photo = property?.photos?.[0];
+                    return (
+                      <div key={app.id} className="relative">
+                        <Link href={`/pm/applications/view?id=${app.id}`} className="block">
+                          <Card className="p-4 transition-shadow hover:shadow-md">
+                            <CardContent className="flex items-center gap-3 p-0">
+                              <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-navy-900/5">
+                                {photo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={photo} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center">
+                                    <ClipboardList className="h-5 w-5 text-navy-900/20" />
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge tone={APP_TONE[app.status] ?? "neutral"}>
-                            {app.status.replace(/_/g, " ")}
-                          </Badge>
-                          <Button size="sm" variant="outline" href={`/pm/applications/view?id=${app.id}`}>
-                            View
-                          </Button>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-navy-900">
+                                  <TenantLabel tenantId={app.tenantId} />
+                                </p>
+                                <p className="flex items-center gap-1 text-xs text-neutral-500">
+                                  <Home className="h-3 w-3 shrink-0" />
+                                  {property?.name ?? "—"}
+                                  {unit ? ` · Unit ${unit.unitNumber}` : ""}
+                                </p>
+                                <p className="text-xs text-neutral-500">Submitted {fmt(app.submittedAt)}</p>
+                                {app.documentUrls && app.documentUrls.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-2">
+                                    {app.documentUrls.map((url, i) => (
+                                      <a
+                                        key={i}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-xs text-orange-600 hover:underline"
+                                      >
+                                        Attachment {i + 1}
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="shrink-0">
+                                <Badge tone={APP_TONE[app.status] ?? "neutral"}>
+                                  {app.status.replace(/_/g, " ")}
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                        <div className="absolute right-2 top-2">
                           <DeleteButton onDelete={() => handleDeleteApplication(app.id)} label="Delete application" />
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {sentLeases.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <h3 className="text-sm font-semibold text-navy-900">Lease Agreements</h3>
-                  {sentLeases.map((lease) => (
-                    <Card key={lease.id} className="p-4">
-                      <CardContent className="flex items-center justify-between gap-3 p-0">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <FileText className="h-5 w-5 shrink-0 text-orange-500" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-navy-900">
-                              {lease.tenantName || lease.tenantEmail}
-                            </p>
-                            <p className="text-xs text-neutral-500">
-                              {lease.termType} · Sent {fmt(lease.sentAt)}
-                              {lease.viewedAt ? ` · Viewed ${fmt(lease.viewedAt)}` : ""}
-                            </p>
-                            {lease.tenantSignedAt && (
-                              <p className="text-xs text-green-600">Signed {fmt(lease.tenantSignedAt)}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge tone={LEASE_TONE[lease.status] ?? "neutral"}>
-                            {lease.status.replace("_", " ")}
-                          </Badge>
-                          <Button size="sm" variant="outline" href={`/pm/leases/view?id=${lease.id}`}>
-                            View
-                          </Button>
+                  {sentLeases.map((lease) => {
+                    const { property, unit } = propertyUnitForLease(lease);
+                    const photo = property?.photos?.[0];
+                    return (
+                      <div key={lease.id} className="relative">
+                        <Link href={`/pm/leases/view?id=${lease.id}`} className="block">
+                          <Card className="p-4 transition-shadow hover:shadow-md">
+                            <CardContent className="flex items-center gap-3 p-0">
+                              <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-navy-900/5">
+                                {photo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={photo} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center">
+                                    <FileText className="h-5 w-5 text-navy-900/20" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-navy-900">
+                                  {lease.tenantName || lease.tenantEmail}
+                                </p>
+                                <p className="flex items-center gap-1 text-xs text-neutral-500">
+                                  <Home className="h-3 w-3 shrink-0" />
+                                  {property?.name ?? "—"}
+                                  {unit ? ` · Unit ${unit.unitNumber}` : ""}
+                                </p>
+                                <p className="text-xs text-neutral-500">
+                                  {lease.termType} · Sent {fmt(lease.sentAt)}
+                                  {lease.viewedAt ? ` · Viewed ${fmt(lease.viewedAt)}` : ""}
+                                </p>
+                                {lease.tenantSignedAt && (
+                                  <p className="text-xs text-green-600">Signed {fmt(lease.tenantSignedAt)}</p>
+                                )}
+                              </div>
+                              <div className="shrink-0">
+                                <Badge tone={LEASE_TONE[lease.status] ?? "neutral"}>
+                                  {lease.status.replace("_", " ")}
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                        <div className="absolute right-2 top-2">
                           <DeleteButton onDelete={() => handleDeleteLease(lease.id)} label="Delete lease" />
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -287,8 +416,8 @@ function DeleteButton({ onDelete, label }: { onDelete: () => Promise<void>; labe
       <button
         type="button"
         title={label}
-        onClick={() => setConfirm(true)}
-        className="shrink-0 rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+        onClick={(e) => { e.preventDefault(); setConfirm(true); }}
+        className="shrink-0 rounded bg-white/90 p-1.5 text-neutral-400 shadow-sm hover:bg-red-50 hover:text-red-600"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -296,12 +425,15 @@ function DeleteButton({ onDelete, label }: { onDelete: () => Promise<void>; labe
   }
 
   return (
-    <div className="flex items-center gap-1 shrink-0">
+    <div
+      className="flex items-center gap-1 shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 shadow-sm"
+      onClick={(e) => e.preventDefault()}
+    >
       <span className="text-xs font-medium text-red-600">Delete?</span>
       <button
         type="button"
         disabled={deleting}
-        onClick={async () => { setDeleting(true); await onDelete(); }}
+        onClick={async (e) => { e.preventDefault(); setDeleting(true); await onDelete(); }}
         className="rounded bg-red-600 px-2 py-0.5 text-xs text-white hover:bg-red-700 disabled:opacity-50"
       >
         {deleting ? "…" : "Yes"}
@@ -309,7 +441,7 @@ function DeleteButton({ onDelete, label }: { onDelete: () => Promise<void>; labe
       <button
         type="button"
         disabled={deleting}
-        onClick={() => setConfirm(false)}
+        onClick={(e) => { e.preventDefault(); setConfirm(false); }}
         className="rounded border border-neutral-300 px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-50"
       >
         No

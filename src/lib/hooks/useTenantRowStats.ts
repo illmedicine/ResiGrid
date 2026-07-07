@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  doc,
-  getAggregateFromServer,
-  getCountFromServer,
-  getDoc,
-  getDocs,
-  query,
-  sum,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import {
   applicationsCol,
@@ -61,25 +52,19 @@ export function useTenantRowStats(tenantId: string, pmId: string | undefined): T
     setStats(EMPTY);
 
     async function load() {
-      const [paidAgg, docsCount, appsCount, completedPayments, maintenanceSnap, scoreSnap, userSnap] =
-        await Promise.all([
-          getAggregateFromServer(
-            query(
-              paymentsCol(),
-              where("tenantId", "==", tenantId),
-              where("pmId", "==", pmId),
-              where("status", "==", "completed"),
-            ),
-            { total: sum("amount") },
-          ),
-          getCountFromServer(
+      // Plain getDocs() multi-equality queries (no orderBy, no aggregation)
+      // for everything — counts/sums are derived client-side below. Using
+      // Promise.allSettled means one query failing (e.g. a permission or
+      // index hiccup) can't blank out every other stat on the row, and each
+      // rejection is logged instead of silently swallowed.
+      const [sharedDocsResult, appsResult, completedPaymentsResult, maintenanceResult, scoreResult, userResult] =
+        await Promise.allSettled([
+          getDocs(
             query(sharedDocumentsCol(), where("tenantId", "==", tenantId), where("pmId", "==", pmId)),
           ),
-          getCountFromServer(
+          getDocs(
             query(applicationsCol(), where("tenantId", "==", tenantId), where("pmId", "==", pmId)),
           ),
-          // Plain multi-equality query (no orderBy) so this doesn't need a
-          // composite index — "most recent" is computed client-side below.
           getDocs(
             query(
               paymentsCol(),
@@ -97,27 +82,51 @@ export function useTenantRowStats(tenantId: string, pmId: string | undefined): T
 
       if (cancelled) return;
 
-      const hasUrgentOpenMaintenance = maintenanceSnap.docs.some((d) => {
-        const req = d.data() as MaintenanceRequestDoc;
-        return OPEN_STATUSES.has(req.status) && URGENT_PRIORITIES.has(req.priority);
-      });
+      for (const [label, result] of [
+        ["sharedDocuments", sharedDocsResult],
+        ["applications", appsResult],
+        ["payments", completedPaymentsResult],
+        ["maintenanceRequests", maintenanceResult],
+        ["reputationScores", scoreResult],
+        ["users", userResult],
+      ] as const) {
+        if (result.status === "rejected") {
+          console.error(`useTenantRowStats: ${label} query failed`, result.reason);
+        }
+      }
 
-      const paidDates = completedPayments.docs
+      const sharedDocsCount = sharedDocsResult.status === "fulfilled" ? sharedDocsResult.value.size : 0;
+      const appsCount = appsResult.status === "fulfilled" ? appsResult.value.size : 0;
+
+      const paidDocs = completedPaymentsResult.status === "fulfilled" ? completedPaymentsResult.value.docs : [];
+      const totalPaid = paidDocs.reduce((sum, d) => sum + ((d.data() as PaymentDoc).amount ?? 0), 0);
+      const paidDates = paidDocs
         .map((d) => (d.data() as PaymentDoc).paidDate)
         .filter((d): d is number => d != null);
 
+      const hasUrgentOpenMaintenance =
+        maintenanceResult.status === "fulfilled" &&
+        maintenanceResult.value.docs.some((d) => {
+          const req = d.data() as MaintenanceRequestDoc;
+          return OPEN_STATUSES.has(req.status) && URGENT_PRIORITIES.has(req.priority);
+        });
+
+      const scoreSnap = scoreResult.status === "fulfilled" ? scoreResult.value : null;
+      const userSnap = userResult.status === "fulfilled" ? userResult.value : null;
+
       setStats({
         loading: false,
-        totalPaid: paidAgg.data().total ?? 0,
-        docsSubmitted: (docsCount.data().count ?? 0) + (appsCount.data().count ?? 0),
-        score: scoreSnap.exists() ? (scoreSnap.data() as ReputationScoreDoc).score : null,
-        tenantCreatedAt: userSnap.exists() ? (userSnap.data() as UserDoc).createdAt ?? null : null,
+        totalPaid,
+        docsSubmitted: sharedDocsCount + appsCount,
+        score: scoreSnap?.exists() ? (scoreSnap.data() as ReputationScoreDoc).score : null,
+        tenantCreatedAt: userSnap?.exists() ? (userSnap.data() as UserDoc).createdAt ?? null : null,
         lastCompletedPaymentAt: paidDates.length > 0 ? Math.max(...paidDates) : null,
         hasUrgentOpenMaintenance,
       });
     }
 
-    load().catch(() => {
+    load().catch((err) => {
+      console.error("useTenantRowStats: load() failed", err);
       if (!cancelled) setStats((s) => ({ ...s, loading: false }));
     });
 

@@ -171,7 +171,7 @@ export default function PmSettingsPage() {
               </p>
               <Button href="/pm/payouts" size="sm" className="w-fit">
                 <Landmark className="h-4 w-4" />
-                Connect payouts
+                Open Payment Center
               </Button>
             </>
           )}

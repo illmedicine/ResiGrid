@@ -106,7 +106,7 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
           <UserAvatar photoURL={photoURL} displayName={displayName} />
           {paymentsConnected != null && (
             <span
-              title={paymentsConnected ? "Receiving payments" : "Payouts not connected"}
+              title={paymentsConnected ? "Receiving payments" : "Payments not set up"}
               className={cn(
                 "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white",
                 paymentsConnected ? "bg-green-500" : "bg-amber-400",
@@ -179,9 +179,9 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
             >
               <Landmark className="h-4 w-4" />
               <span className="flex flex-col leading-tight">
-                <span>Payments</span>
+                <span>Payment Center</span>
                 <span className={cn("text-[10px] font-semibold", paymentsConnected ? "text-green-600" : "text-amber-600")}>
-                  {paymentsConnected ? "● Receiving payments" : "● Set up payouts"}
+                  {paymentsConnected ? "● Receiving payments" : "● Set up payments"}
                 </span>
               </span>
             </Link>

@@ -72,10 +72,10 @@ export default function PmPayoutsPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-xl font-bold text-navy-900">Payouts</h1>
+        <h1 className="text-xl font-bold text-navy-900">Payment Center</h1>
         <p className="text-sm text-neutral-600">
-          Rent payments from tenants are deposited directly into your connected Square account.
-          ResiGrid charges no fees — Square's standard processing rates apply.
+          Rent payments from your ResiGrid tenants are deposited directly into your connected
+          Square account. ResiGrid charges no fees — Square&apos;s standard processing rates apply.
         </p>
       </div>
 
@@ -101,7 +101,7 @@ export default function PmPayoutsPage() {
                 )}
               </div>
               <p className="text-xs text-neutral-600">
-                Tenant payments go directly into your Square merchant account and are paid out on Square's normal schedule (typically 1–2 business days).
+                Tenant payments go directly into your Square merchant account and are paid out on Square&apos;s normal schedule (typically 1–2 business days).
               </p>
               <Button size="sm" variant="outline" onClick={handleConnect} disabled={connecting} className="w-fit">
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -111,14 +111,15 @@ export default function PmPayoutsPage() {
           ) : (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-neutral-600">
-                Connect your Square account so tenant rent payments deposit directly into your bank.
-                No ResiGrid account required on the tenant's end — they just pay with a card.
+                Connect your Square account so rent payments from your tenants deposit directly
+                into your bank. Your tenants pay right from their ResiGrid tenant portal — with
+                $0 in transaction fees — and every on-time payment builds their RGE Score.
               </p>
               <Button onClick={handleConnect} disabled={connecting} className="w-fit">
                 {connecting ? "Redirecting…" : "Connect Square"}
               </Button>
               <p className="text-xs text-neutral-500">
-                You'll be redirected to Square to authorize access. Your credentials are stored securely by Square — ResiGrid never sees your banking details.
+                You&apos;ll be redirected to Square to authorize access. Your credentials are stored securely by Square — ResiGrid never sees your banking details.
               </p>
             </div>
           )}

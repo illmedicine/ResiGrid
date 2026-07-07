@@ -81,7 +81,7 @@ export default function PmDashboardPage() {
         <QuickLink href="/pm/messages" icon={MessageSquare} label="Messages" />
         <QuickLink href="/pm/notices" icon={Megaphone} label="Notices" />
         <QuickLink href="/pm/documents" icon={FolderOpen} label="Documents" />
-        <QuickLink href="/pm/payouts" icon={Landmark} label="Payouts" />
+        <QuickLink href="/pm/payouts" icon={Landmark} label="Payment Center" />
         <QuickLink href="/pm/settings" icon={Settings} label="Settings" />
       </div>
 

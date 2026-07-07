@@ -130,7 +130,7 @@ export function EarlyAdopterWelcome() {
                 <div className="flex gap-2">
                   <Button href="/pm/payouts" size="sm">
                     <Landmark className="h-4 w-4" />
-                    Connect payouts
+                    Open Payment Center
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setDismissed(true)}>
                     Explore first

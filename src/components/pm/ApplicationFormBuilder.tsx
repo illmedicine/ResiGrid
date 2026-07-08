@@ -8,7 +8,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { ClipboardList, Landmark, Plus, Trash2 } from "lucide-react";
 import { applicationFormsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
-import { useSquareConnected } from "@/lib/hooks/useSquareConnected";
+import { usePayoutStatus } from "@/lib/hooks/usePayoutStatus";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -89,7 +89,7 @@ const CRITERIA = [
 
 export function ApplicationFormBuilder({ existingForm, onSaved }: ApplicationFormBuilderProps) {
   const { user } = useAuth();
-  const { connected: squareConnected } = useSquareConnected(Boolean(user));
+  const { hasAnyPayout, loading: payoutLoading } = usePayoutStatus(user?.uid);
   const [customQuestions, setCustomQuestions] = useState<string[]>(existingForm?.customQuestions ?? []);
   const [newQuestion, setNewQuestion] = useState("");
   const [saving, setSaving] = useState(false);
@@ -134,7 +134,8 @@ export function ApplicationFormBuilder({ existingForm, onSaved }: ApplicationFor
   const watchedFee = Number(watch("applicationFee") ?? 0);
   const watchedPolicy = watch("feePolicy");
   const feeNeedsPayments = watchedFee > 0 && watchedPolicy !== "waived";
-  const feeBlocked = feeNeedsPayments && squareConnected === false;
+  const noPayoutMethod = !payoutLoading && !hasAnyPayout;
+  const feeBlocked = feeNeedsPayments && noPayoutMethod;
 
   function addQuestion() {
     const q = newQuestion.trim();
@@ -149,9 +150,9 @@ export function ApplicationFormBuilder({ existingForm, onSaved }: ApplicationFor
 
   async function onSubmit(values: FormValues) {
     if (!user) return;
-    if (values.applicationFee > 0 && values.feePolicy !== "waived" && squareConnected === false) {
+    if (values.applicationFee > 0 && values.feePolicy !== "waived" && noPayoutMethod) {
       setError(
-        "To charge an application fee, first connect a payout method in the Payment Center so applicants can pay you at submission — or set the fee policy to Waived.",
+        "To charge an application fee, add a payout method in the Payment Center — connect Square or add a PayPal/Cash App/Venmo/Chime/Zelle handle — so applicants have a way to pay you. Or set the fee policy to Waived.",
       );
       return;
     }
@@ -286,15 +287,16 @@ export function ApplicationFormBuilder({ existingForm, onSaved }: ApplicationFor
           </Select>
         </div>
         <p className="mt-2 text-xs text-neutral-500">
-          Leave at $0 for free applications. When a fee is charged, applicants pay by card
-          at submission and the fee deposits into your connected Square account. The policy
-          is shown to applicants before they pay.
+          Leave at $0 for free applications. If you&apos;ve connected Square, applicants pay the
+          fee by card at submission. Otherwise they pay it through one of your enabled apps
+          (PayPal, Cash App, Venmo, Chime, Zelle) and you confirm receipt from the application.
+          The policy is shown to applicants before they pay.
         </p>
-        {feeNeedsPayments && squareConnected === false && (
+        {feeNeedsPayments && noPayoutMethod && (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
             <p className="text-xs font-medium text-amber-800">
-              Charging a fee requires a connected payout method so applicants can pay you at
-              submission.
+              Charging a fee needs a payout method so applicants have a way to pay you — connect
+              Square or add at least one app handle in the Payment Center.
             </p>
             <Button href="/pm/payouts" size="sm" variant="outline" className="ml-auto">
               <Landmark className="h-3.5 w-3.5" />

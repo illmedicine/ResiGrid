@@ -13,6 +13,7 @@ import {
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock,
   Info,
   MessageSquare,
   ThumbsDown,
@@ -23,6 +24,7 @@ import {
 import { db } from "@/lib/firebase/config";
 import { messageThreadsCol, threadMessagesCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { EXTERNAL_METHODS } from "@/lib/payments/externalMethods";
 import { ApplicationPreviewDoc } from "@/components/shared/ApplicationPreviewDoc";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -123,6 +125,17 @@ function PmApplicationViewContent() {
   async function handleMarkUnderReview() {
     setWorking(true);
     try { await setStatus("under_review"); } finally { setWorking(false); }
+  }
+
+  async function handleConfirmFee() {
+    if (!application) return;
+    setWorking(true);
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        feeStatus: "paid",
+        feePaidAt: Date.now(),
+      });
+    } finally { setWorking(false); }
   }
 
   async function handleShortlist() {
@@ -236,6 +249,35 @@ function PmApplicationViewContent() {
       <Card className="p-4">
         <CardContent className="flex flex-col gap-4 p-0">
           <h2 className="text-sm font-semibold text-navy-900">Actions</h2>
+
+          {/* Application fee status */}
+          {application.feeAmount ? (
+            application.feeStatus === "pending" ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+                <Clock className="h-4 w-4 shrink-0 text-amber-500" />
+                <span className="text-xs text-amber-900">
+                  Applicant reports paying the ${application.feeAmount} application fee
+                  {application.feeMethod
+                    ? ` via ${EXTERNAL_METHODS[application.feeMethod]?.label ?? application.feeMethod}`
+                    : ""}
+                  . Confirm once the money arrives in your account.
+                </span>
+                <Button size="sm" onClick={handleConfirmFee} disabled={working} className="ml-auto">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Mark fee received
+                </Button>
+              </div>
+            ) : application.feeStatus === "paid" ? (
+              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-xs text-green-800">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />${application.feeAmount} application fee{" "}
+                {application.feePaymentRef ? "paid by card." : "received."}
+              </div>
+            ) : application.feeStatus === "waived" ? (
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs text-neutral-600">
+                ${application.feeAmount} application fee waived.
+              </div>
+            ) : null
+          ) : null}
 
           {/* Reviewable: submitted / under_review / more_info_needed */}
           {isReviewable && !noteMode && (

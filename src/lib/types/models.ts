@@ -176,12 +176,20 @@ export interface ApplicationDoc {
   moveInDate?: number;
   references?: string;
   customAnswers?: Record<string, string>;
-  // Application fee (charged at submission when the form requires one)
+  // Application fee (charged at submission when the form requires one).
+  // "paid"    = collected by card via Square at submission.
+  // "pending" = applicant reported paying via an external app (feeMethod),
+  //             awaiting the PM's confirmation of receipt.
+  // "waived"  = no charge.
   feeAmount?: number;
   feePolicy?: ApplicationFeePolicy;
-  feeStatus?: "paid" | "waived";
-  /** Voucher/payment reference for a paid fee. */
+  feeStatus?: "paid" | "waived" | "pending";
+  /** Which external app the applicant used, when the fee was reported not carded. */
+  feeMethod?: ExternalPayMethod;
+  /** Voucher/payment reference for a card-paid fee. */
   feePaymentRef?: string;
+  /** When the PM confirmed receipt of an externally-reported fee. */
+  feePaidAt?: number;
 }
 
 /** Tenant expresses interest in a listing or requests a visit */

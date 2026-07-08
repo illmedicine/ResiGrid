@@ -30,11 +30,49 @@ export interface PMTeamInviteDoc {
   memberId?: string;
 }
 
+/** Direct-pay handles a PM can enable in the Payment Center. Tenants pay the
+ * PM directly through these apps, then report it for PM confirmation —
+ * unlike Square, money never moves through ResiGrid. Empty/missing = the
+ * method is disabled and hidden from that PM's tenants. */
+export interface PaymentMethodsConfig {
+  /** PayPal.me username (paypal.me/<username>) */
+  paypal?: string;
+  /** Cash App $cashtag, without the $ */
+  cashapp?: string;
+  /** Venmo username, without the @ */
+  venmo?: string;
+  /** Chime $ChimeSign, without the $ */
+  chime?: string;
+  /** Zelle-enrolled email or U.S. phone number */
+  zelle?: string;
+}
+
+export type ExternalPayMethod = keyof PaymentMethodsConfig;
+
+/** Tenant-reported payment made outside ResiGrid (PayPal/Cash App/etc.) —
+ * becomes a real `payments` record (receipt + RGE credit) only after the PM
+ * confirms they received the money. */
+export interface ExternalPaymentClaimDoc {
+  id: string;
+  tenantId: string;
+  pmId: string;
+  amount: number;
+  method: ExternalPayMethod;
+  leaseTermsId?: string;
+  invoiceId?: string;
+  note?: string;
+  status: "pending" | "confirmed" | "declined";
+  createdAt: number;
+  resolvedAt?: number;
+  paymentId?: string;
+}
+
 export interface PropertyManagerDoc {
   uid: string;
   businessName: string;
   payoutAccountRef?: string;
   propertyIds: string[];
+  paymentMethods?: PaymentMethodsConfig;
 }
 
 export interface GeoPoint {
@@ -197,7 +235,9 @@ export interface PaymentDoc {
   tenantId: string;
   pmId?: string;
   amount: number;
-  method: "card" | "voucher";
+  method: "card" | "voucher" | "external";
+  /** For method "external": which app the tenant paid through (paypal, cashapp…). */
+  externalMethod?: string;
   status: PaymentStatus;
   dueDate?: number;
   paidDate?: number;

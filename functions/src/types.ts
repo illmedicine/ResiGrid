@@ -37,12 +37,31 @@ export interface PaymentDoc {
   tenantId: string;
   pmId?: string;
   amount: number;
-  method: "card" | "voucher";
+  method: "card" | "voucher" | "external";
+  /** For method "external": which app the tenant paid through (paypal, cashapp…). */
+  externalMethod?: string;
   status: PaymentStatus;
   dueDate?: number;
   paidDate?: number;
   onTime?: boolean;
   voucherId?: string;
+}
+
+/** Tenant-reported payment made outside ResiGrid (PayPal/Cash App/etc.) —
+ * becomes a real `payments` record only after the PM confirms receipt. */
+export interface ExternalPaymentClaimDoc {
+  id: string;
+  tenantId: string;
+  pmId: string;
+  amount: number;
+  method: string;
+  leaseTermsId?: string;
+  invoiceId?: string;
+  note?: string;
+  status: "pending" | "confirmed" | "declined";
+  createdAt: number;
+  resolvedAt?: number;
+  paymentId?: string;
 }
 
 export type VoucherStatus =

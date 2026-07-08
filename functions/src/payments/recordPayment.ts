@@ -6,15 +6,20 @@ interface RecordPaymentParams {
   tenantId: string;
   pmId?: string;
   amount: number;
-  voucherId: string;
+  /** Present for the card/voucher rails; absent for confirmed external payments. */
+  voucherId?: string;
   leaseId?: string;
   leaseTermsId?: string;
   invoiceId?: string;
+  method?: "card" | "voucher" | "external";
+  /** For method "external": which app the tenant paid through (paypal, cashapp…). */
+  externalMethod?: string;
 }
 
-/** Writes a `payments` doc once money has actually moved (not before). */
-export async function recordCompletedPayment(params: RecordPaymentParams): Promise<void> {
-  const { tenantId, pmId, amount, voucherId, leaseId, leaseTermsId, invoiceId } = params;
+/** Writes a `payments` doc once money has actually moved (not before).
+ * Returns the new payment ID. */
+export async function recordCompletedPayment(params: RecordPaymentParams): Promise<string> {
+  const { tenantId, pmId, amount, voucherId, leaseId, leaseTermsId, invoiceId, method, externalMethod } = params;
   const now = Date.now();
   const dayOfMonth = new Date(now).getDate();
 
@@ -43,10 +48,11 @@ export async function recordCompletedPayment(params: RecordPaymentParams): Promi
     id: paymentRef.id,
     tenantId,
     amount,
-    method: "voucher",
+    method: method ?? "voucher",
     status: "completed",
     paidDate: now,
-    voucherId,
+    ...(voucherId ? { voucherId } : {}),
+    ...(externalMethod ? { externalMethod } : {}),
     ...(leaseId ? { leaseId } : {}),
     ...(leaseTermsId ? { leaseTermsId } : {}),
     ...(invoiceId ? { invoiceId } : {}),
@@ -101,4 +107,6 @@ export async function recordCompletedPayment(params: RecordPaymentParams): Promi
       logger.error("recordCompletedPayment: receipt creation failed", err);
     }
   }
+
+  return paymentRef.id;
 }

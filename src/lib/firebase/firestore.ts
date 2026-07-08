@@ -9,6 +9,7 @@ import { db } from "./config";
 import type {
   ApplicationDoc,
   ApplicationFormDoc,
+  ExternalPaymentClaimDoc,
   LeaseDoc,
   LeaseTemplateDoc,
   LeaseTermsDoc,
@@ -85,3 +86,5 @@ export const pmTeamInvitesCol = () =>
   typedCollection<PMTeamInviteDoc>("pmTeamInvites");
 export const rentInvoicesCol = () =>
   typedCollection<RentInvoiceDoc>("rentInvoices");
+export const externalPaymentClaimsCol = () =>
+  typedCollection<ExternalPaymentClaimDoc>("externalPaymentClaims");

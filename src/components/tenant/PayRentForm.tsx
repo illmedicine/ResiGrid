@@ -13,11 +13,11 @@ import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { useCurrentRentInvoice } from "@/lib/hooks/useCurrentRentInvoice";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card, CardContent } from "@/components/ui/Card";
 import type { UserDoc } from "@/lib/types/models";
 import type { SquareCard } from "@/lib/square/client";
 import { SquareCardField } from "./SquareCardField";
 import { DaysDueCounter } from "./DaysDueCounter";
+import { ExternalPayOptions } from "./ExternalPayOptions";
 
 const leaseSchema = z.object({
   amount: z.coerce.number().positive("Enter an amount greater than 0"),
@@ -197,6 +197,14 @@ export function PayRentForm() {
               Processed by Square — funds go directly to your property manager. ResiGrid charges no fees.
             </p>
           </form>
+
+          {/* Direct-pay apps the PM has enabled (PayPal, Cash App, Venmo, Chime, Zelle) */}
+          <ExternalPayOptions
+            pmId={signedLease.pmId}
+            leaseTermsId={signedLease.id}
+            invoiceId={invoice?.id}
+            defaultAmount={invoice?.amount ?? signedLease.rent}
+          />
         </>
       )}
 
@@ -230,7 +238,7 @@ export function PayRentForm() {
               {submitting ? "Processing…" : "Pay now"}
             </Button>
             <p className="text-xs text-neutral-500">
-              Recipients who aren't on ResiGrid claim funds via a secure email link. Processed by Square — no ResiGrid fees.
+              Recipients who aren&apos;t on ResiGrid claim funds via a secure email link. Processed by Square — no ResiGrid fees.
             </p>
           </form>
         </>

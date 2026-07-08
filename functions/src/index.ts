@@ -20,3 +20,4 @@ export { onMaintenanceRequestUpdated } from "./notifications/onMaintenanceUpdate
 export { createFirstRentInvoice, generateRecurringRentInvoices } from "./payments/rentInvoices";
 export { adminGetOverview, adminSetUserRole, adminSetPromoAccess } from "./admin/adminPortal";
 export { claimEarlyAdopterPromo, enforcePromoRevocations } from "./promotions/earlyAdopter";
+export { confirmExternalPayment } from "./payments/externalPayments";

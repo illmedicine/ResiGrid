@@ -153,6 +153,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Tenant-reported payments made outside ResiGrid (PayPal/Cash App/etc.).
+    // Tenants create their own pending reports; resolution (confirm/decline)
+    // happens only through the confirmExternalPayment callable.
+    match /externalPaymentClaims/{claimId} {
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow create: if isSignedIn() &&
+        request.resource.data.tenantId == request.auth.uid &&
+        request.resource.data.status == "pending" &&
+        request.resource.data.amount > 0;
+      allow update, delete: if false;
+    }
+
     // Public promo counters (e.g. Grid Early Adopter slots remaining) — shown
     // on the pre-auth landing page, so read must not require sign-in. Written
     // only by Cloud Functions.

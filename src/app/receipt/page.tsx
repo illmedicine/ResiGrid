@@ -129,7 +129,14 @@ function ReceiptContent() {
               <Row label="Paid to" value={businessName} strong />
               <Row label="Paid by" value={tenantName} />
               <Row label="Date" value={paidDate} />
-              <Row label="Method" value={payment.method === "voucher" ? "Card via ResiGrid" : "Card"} />
+              <Row
+                label="Method"
+                value={
+                  payment.method === "external"
+                    ? `${(payment.externalMethod ?? "direct").replace(/^\w/, (c) => c.toUpperCase())} (confirmed by property manager)`
+                    : "Card via ResiGrid"
+                }
+              />
               <Row label="Reference" value={payment.id} mono />
             </div>
 

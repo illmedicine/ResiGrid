@@ -174,7 +174,14 @@ export interface ApplicationDoc {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   moveInDate?: number;
+  references?: string;
   customAnswers?: Record<string, string>;
+  // Application fee (charged at submission when the form requires one)
+  feeAmount?: number;
+  feePolicy?: ApplicationFeePolicy;
+  feeStatus?: "paid" | "waived";
+  /** Voucher/payment reference for a paid fee. */
+  feePaymentRef?: string;
 }
 
 /** Tenant expresses interest in a listing or requests a visit */
@@ -190,7 +197,9 @@ export interface TenantInterestDoc {
   status: "pending" | "acknowledged" | "scheduled" | "completed";
 }
 
-/** PM-created custom application form for a listing or property */
+export type ApplicationFeePolicy = "waived" | "refundable" | "non_refundable";
+
+/** PM-created reusable application template — attach to any unit's listing */
 export interface ApplicationFormDoc {
   id: string;
   pmId: string;
@@ -203,8 +212,13 @@ export interface ApplicationFormDoc {
   requireBankStatements: boolean;
   requirePhotoID: boolean;
   requireUtilityStatement: boolean;
+  requireReferences?: boolean;
+  /** Minimum applicant monthly income ($) — 0/absent = no requirement. */
+  requiredMonthlyIncome?: number;
   allowInstantApply: boolean;
   applicationFee?: number;
+  /** How the fee is handled when applicationFee > 0 (default non_refundable). */
+  feePolicy?: ApplicationFeePolicy;
   customQuestions: string[];
   createdAt: number;
 }

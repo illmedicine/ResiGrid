@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addDoc, doc, setDoc } from "firebase/firestore";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { doc, setDoc } from "firebase/firestore";
+import { ClipboardList, Landmark, Plus, Trash2 } from "lucide-react";
 import { applicationFormsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useSquareConnected } from "@/lib/hooks/useSquareConnected";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import type { ApplicationFormDoc } from "@/lib/types/models";
 
 const schema = z.object({
@@ -21,14 +23,19 @@ const schema = z.object({
   requireBankStatements: z.boolean(),
   requirePhotoID: z.boolean(),
   requireUtilityStatement: z.boolean(),
+  requireReferences: z.boolean(),
+  requiredMonthlyIncome: z.coerce.number().min(0).default(0),
   allowInstantApply: z.boolean(),
   applicationFee: z.coerce.number().min(0).default(0),
+  feePolicy: z.enum(["waived", "refundable", "non_refundable"]).default("non_refundable"),
 });
 
 type FormInput = z.input<typeof schema>;
 type FormValues = z.output<typeof schema>;
 
 interface ApplicationFormBuilderProps {
+  /** When provided, the builder edits this template in place instead of creating a new one. */
+  existingForm?: ApplicationFormDoc;
   onSaved?: (form: ApplicationFormDoc) => void;
 }
 
@@ -69,34 +76,65 @@ const CRITERIA = [
     description: "Tenant uploads a recent utility bill or lease agreement.",
   },
   {
+    key: "requireReferences" as const,
+    label: "References",
+    description: "Tenant provides personal or previous-landlord references with contact info.",
+  },
+  {
     key: "allowInstantApply" as const,
     label: "Allow instant application (no screening required)",
     description: "Tenants may apply without uploading documents; PM reviews manually.",
   },
 ] as const;
 
-export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps) {
+export function ApplicationFormBuilder({ existingForm, onSaved }: ApplicationFormBuilderProps) {
   const { user } = useAuth();
-  const [customQuestions, setCustomQuestions] = useState<string[]>([]);
+  const { connected: squareConnected } = useSquareConnected(Boolean(user));
+  const [customQuestions, setCustomQuestions] = useState<string[]>(existingForm?.customQuestions ?? []);
   const [newQuestion, setNewQuestion] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormInput, unknown, FormValues>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      requireIncomeVerification: true,
-      requirePaystubs: true,
-      requirePhotoID: true,
-      requireBackgroundCheck: false,
-      requireCreditCheck: false,
-      requireBankStatements: false,
-      requireUtilityStatement: false,
-      allowInstantApply: false,
-      applicationFee: 0,
-    },
+    defaultValues: existingForm
+      ? {
+          name: existingForm.name,
+          requireIncomeVerification: existingForm.requireIncomeVerification,
+          requirePaystubs: existingForm.requirePaystubs,
+          requirePhotoID: existingForm.requirePhotoID,
+          requireBackgroundCheck: existingForm.requireBackgroundCheck,
+          requireCreditCheck: existingForm.requireCreditCheck,
+          requireBankStatements: existingForm.requireBankStatements,
+          requireUtilityStatement: existingForm.requireUtilityStatement,
+          requireReferences: existingForm.requireReferences ?? false,
+          requiredMonthlyIncome: existingForm.requiredMonthlyIncome ?? 0,
+          allowInstantApply: existingForm.allowInstantApply,
+          applicationFee: existingForm.applicationFee ?? 0,
+          feePolicy: existingForm.feePolicy ?? "non_refundable",
+        }
+      : {
+          name: "",
+          requireIncomeVerification: true,
+          requirePaystubs: true,
+          requirePhotoID: true,
+          requireBackgroundCheck: false,
+          requireCreditCheck: false,
+          requireBankStatements: false,
+          requireUtilityStatement: false,
+          requireReferences: false,
+          requiredMonthlyIncome: 0,
+          allowInstantApply: false,
+          applicationFee: 0,
+          feePolicy: "non_refundable",
+        },
   });
+
+  const watchedFee = Number(watch("applicationFee") ?? 0);
+  const watchedPolicy = watch("feePolicy");
+  const feeNeedsPayments = watchedFee > 0 && watchedPolicy !== "waived";
+  const feeBlocked = feeNeedsPayments && squareConnected === false;
 
   function addQuestion() {
     const q = newQuestion.trim();
@@ -111,13 +149,21 @@ export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps)
 
   async function onSubmit(values: FormValues) {
     if (!user) return;
+    if (values.applicationFee > 0 && values.feePolicy !== "waived" && squareConnected === false) {
+      setError(
+        "To charge an application fee, first connect a payout method in the Payment Center so applicants can pay you at submission — or set the fee policy to Waived.",
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const ref = doc(applicationFormsCol());
+      const ref = existingForm
+        ? doc(applicationFormsCol(), existingForm.id)
+        : doc(applicationFormsCol());
       const form: ApplicationFormDoc = {
         id: ref.id,
-        pmId: user.uid,
+        pmId: existingForm?.pmId ?? user.uid,
         name: values.name,
         requireIncomeVerification: values.requireIncomeVerification,
         requireBackgroundCheck: values.requireBackgroundCheck,
@@ -126,10 +172,13 @@ export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps)
         requireBankStatements: values.requireBankStatements,
         requirePhotoID: values.requirePhotoID,
         requireUtilityStatement: values.requireUtilityStatement,
+        requireReferences: values.requireReferences,
+        requiredMonthlyIncome: values.requiredMonthlyIncome,
         allowInstantApply: values.allowInstantApply,
         applicationFee: values.applicationFee,
+        feePolicy: values.feePolicy,
         customQuestions,
-        createdAt: Date.now(),
+        createdAt: existingForm?.createdAt ?? Date.now(),
       };
       await setDoc(ref, form);
       setSaved(true);
@@ -145,13 +194,19 @@ export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps)
     return (
       <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
         <ClipboardList className="mx-auto mb-3 h-8 w-8 text-green-600" />
-        <p className="font-semibold text-green-800">Application form saved!</p>
-        <p className="mt-1 text-sm text-green-700">
-          You can assign this form when publishing a listing.
+        <p className="font-semibold text-green-800">
+          {existingForm ? "Changes saved!" : "Application template saved!"}
         </p>
-        <Button className="mt-4" variant="outline" onClick={() => setSaved(false)}>
-          Create another form
-        </Button>
+        <p className="mt-1 text-sm text-green-700">
+          {existingForm
+            ? "Units already using this template will pick up the update."
+            : "You can attach this template to any unit when opening applications."}
+        </p>
+        {!existingForm && (
+          <Button className="mt-4" variant="outline" onClick={() => setSaved(false)}>
+            Create another template
+          </Button>
+        )}
       </div>
     );
   }
@@ -194,22 +249,59 @@ export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps)
         </div>
       </div>
 
+      {/* Income requirement */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-5">
+        <h3 className="mb-3 text-sm font-semibold text-navy-900">Income requirement</h3>
+        <div className="flex items-start gap-3">
+          <Input
+            label="Required monthly income ($)"
+            type="number"
+            min="0"
+            step="100"
+            {...register("requiredMonthlyIncome")}
+            className="w-44"
+          />
+          <p className="mt-6 text-xs text-neutral-500">
+            Applicants are told the minimum up front; ResiGrid flags applications
+            below it. Leave at $0 for no requirement.
+          </p>
+        </div>
+      </div>
+
       {/* Application fee */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold text-navy-900">Application fee</h3>
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
             label="Application fee ($)"
             type="number"
             min="0"
             step="1"
             {...register("applicationFee")}
-            className="w-40"
           />
-          <p className="mt-5 text-xs text-neutral-500">
-            Leave at $0 for free applications.
-          </p>
+          <Select label="Fee policy" {...register("feePolicy")} disabled={watchedFee <= 0}>
+            <option value="non_refundable">Non-refundable</option>
+            <option value="refundable">Refundable if not approved</option>
+            <option value="waived">Waived (shown but not charged)</option>
+          </Select>
         </div>
+        <p className="mt-2 text-xs text-neutral-500">
+          Leave at $0 for free applications. When a fee is charged, applicants pay by card
+          at submission and the fee deposits into your connected Square account. The policy
+          is shown to applicants before they pay.
+        </p>
+        {feeNeedsPayments && squareConnected === false && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+            <p className="text-xs font-medium text-amber-800">
+              Charging a fee requires a connected payout method so applicants can pay you at
+              submission.
+            </p>
+            <Button href="/pm/payouts" size="sm" variant="outline" className="ml-auto">
+              <Landmark className="h-3.5 w-3.5" />
+              Open Payment Center
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Custom questions */}
@@ -256,9 +348,9 @@ export function ApplicationFormBuilder({ onSaved }: ApplicationFormBuilderProps)
         <p className="text-sm text-red-600">{error}</p>
       )}
 
-      <Button type="submit" disabled={saving}>
+      <Button type="submit" disabled={saving || feeBlocked}>
         <ClipboardList className="h-4 w-4" />
-        {saving ? "Saving…" : "Save application form"}
+        {saving ? "Saving…" : existingForm ? "Save changes" : "Save application template"}
       </Button>
     </form>
   );

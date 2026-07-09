@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { addDoc, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, doc, onSnapshot, setDoc, updateDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { CheckCircle2, Clock, Eye, Send } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { messageThreadsCol, threadMessagesCol } from "@/lib/firebase/firestore";
@@ -65,12 +65,19 @@ function LeaseViewContent() {
           pmDisplayName: data.pmDisplayName ?? "Property Manager",
         });
       }
-      // Auto-repair: ensure unit has currentTenantId set.
+      // Auto-repair: ensure unit has currentTenantId set and mark listing as filled.
       if (data.status === "fully_signed" && data.unitId && data.tenantId) {
         updateDoc(doc(db, "units", data.unitId), {
           status: "occupied",
           currentTenantId: data.tenantId,
           currentLeaseId: id,
+        });
+        // Mark listing as filled when unit is occupied
+        const listingQuery = query(collection(db, "listings"), where("unitId", "==", data.unitId));
+        getDocs(listingQuery).then((snap) => {
+          snap.docs.forEach((listingDoc) => {
+            updateDoc(doc(db, "listings", listingDoc.id), { status: "filled" });
+          });
         });
       }
     });

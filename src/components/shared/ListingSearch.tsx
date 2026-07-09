@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { onSnapshot, query, where } from "firebase/firestore";
+import { onSnapshot, query, where, collection } from "firebase/firestore";
 import { Locate, Loader2, Search, Globe, X } from "lucide-react";
-import { listingsCol } from "@/lib/firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import { listingsCol, unitsCol } from "@/lib/firebase/firestore";
 import { SAMPLE_NATIONAL_LISTINGS } from "@/lib/data/sampleNationalListings";
 import { Input } from "@/components/ui/Input";
 import { ListingCard } from "@/components/shared/ListingCard";
 import { NationalListingCard } from "@/components/shared/NationalListingCard";
-import type { ListingDoc } from "@/lib/types/models";
+import type { ListingDoc, UnitDoc } from "@/lib/types/models";
 
 export function ListingSearch() {
   const [resiListings, setResiListings] = useState<ListingDoc[]>([]);
+  const [units, setUnits] = useState<Map<string, any>>(new Map());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
@@ -26,6 +28,20 @@ export function ListingSearch() {
         setLoading(false);
       },
       () => setLoading(false),
+    );
+  }, []);
+
+  useEffect(() => {
+    const unitsQuery = query(collection(db, "units"));
+    return onSnapshot(
+      unitsQuery,
+      (snap) => {
+        const unitsMap = new Map();
+        snap.docs.forEach((d) => {
+          unitsMap.set(d.id, d.data());
+        });
+        setUnits(unitsMap);
+      },
     );
   }, []);
 
@@ -74,7 +90,12 @@ export function ListingSearch() {
             [l.title, l.city, l.state, l.zip].join(" ").toLowerCase().includes(term),
           )
         : resiListings
-    ).sort((a, b) => Number(b.featured) - Number(a.featured));
+    )
+      .filter((l) => {
+        const unit = units.get(l.unitId);
+        return unit && unit.status === "vacant";
+      })
+      .sort((a, b) => Number(b.featured) - Number(a.featured));
 
     const nationalResults = term
       ? SAMPLE_NATIONAL_LISTINGS.filter((l) =>
@@ -86,7 +107,7 @@ export function ListingSearch() {
       : SAMPLE_NATIONAL_LISTINGS;
 
     return { resiResults, nationalResults };
-  }, [resiListings, search]);
+  }, [resiListings, search, units]);
 
   const hasResi = resiResults.length > 0;
   const hasNational = nationalResults.length > 0;

@@ -315,6 +315,10 @@ export default function Home() {
           <span className="text-white/20">·</span>
           <Link href="/listings" className="transition hover:text-orange-400">Browse Listings</Link>
           <span className="text-white/20">·</span>
+          <Link href="/investors" className="transition hover:text-orange-400">Investors</Link>
+          <span className="text-white/20">·</span>
+          <Link href="/careers" className="transition hover:text-orange-400">Careers</Link>
+          <span className="text-white/20">·</span>
           <Link href="/login" className="transition hover:text-orange-400">Sign In</Link>
         </div>
         <p className="mt-4 text-xs text-white/30">

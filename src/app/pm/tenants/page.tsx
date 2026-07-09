@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   type DocumentData,
   type QueryDocumentSnapshot,
+  addDoc,
   doc,
   getDoc,
   getDocs,
@@ -13,9 +14,9 @@ import {
   startAfter,
   where,
 } from "firebase/firestore";
-import { FileText, Home, Search, Users } from "lucide-react";
+import { FileText, Home, Loader2, Search, Star, Users, X } from "lucide-react";
 import { db } from "@/lib/firebase/config";
-import { leaseTermsCol } from "@/lib/firebase/firestore";
+import { leaseTermsCol, tenantReviewsCol } from "@/lib/firebase/firestore";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useEffectivePMId } from "@/lib/hooks/useEffectivePMId";
 import { useOwnerProperties } from "@/lib/hooks/useOwnerProperties";
@@ -25,6 +26,7 @@ import { computeTenantMood } from "@/lib/tenants/mood";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
+import { RGEBadgeChip } from "@/components/shared/RGEBadgeChip";
 import type { LeaseTermsDoc, PropertyDoc, UnitDoc, UserDoc } from "@/lib/types/models";
 
 const PAGE_SIZE = 25;
@@ -203,6 +205,7 @@ function TenantDashboardRow({
 }) {
   const stats = useTenantRowStats(lease.tenantId ?? "", lease.pmId);
   const { invoice } = useCurrentRentInvoice(lease.id, lease.startDate);
+  const [showRateModal, setShowRateModal] = useState(false);
 
   const { emoji, label } = computeTenantMood({
     leaseStartDate: lease.startDate,
@@ -270,10 +273,14 @@ function TenantDashboardRow({
           value={docsTotal == null ? "…" : String(docsTotal)}
           icon={FileText}
         />
-        <Stat
-          label="RGE score"
-          value={stats.loading ? "…" : stats.score != null ? String(stats.score) : "—"}
-        />
+        <div className="flex flex-col items-start">
+          <span className="text-[10px] uppercase tracking-wide text-neutral-400">RGE</span>
+          {stats.loading ? (
+            <span className="text-sm font-semibold text-navy-900">…</span>
+          ) : (
+            <RGEBadgeChip score={stats.score} badges={stats.badges} />
+          )}
+        </div>
 
         <div className="ml-auto flex gap-2 shrink-0">
           <Button href="/pm/messages" size="sm" variant="outline">
@@ -282,9 +289,92 @@ function TenantDashboardRow({
           <Button href={`/pm/leases/view?id=${lease.id}`} size="sm" variant="outline">
             View lease
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowRateModal(true)}>
+            Rate tenant
+          </Button>
         </div>
       </CardContent>
+      {showRateModal && (
+        <RateTenantModal
+          tenantId={lease.tenantId ?? ""}
+          pmId={lease.pmId}
+          onClose={() => setShowRateModal(false)}
+        />
+      )}
     </Card>
+  );
+}
+
+function RateTenantModal({
+  tenantId,
+  pmId,
+  onClose,
+}: {
+  tenantId: string;
+  pmId: string;
+  onClose: () => void;
+}) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (rating < 1) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await addDoc(tenantReviewsCol(), {
+        id: "",
+        tenantId,
+        pmId,
+        rating: rating as 1 | 2 | 3 | 4 | 5,
+        ...(comment.trim() ? { comment: comment.trim() } : {}),
+        createdAt: Date.now(),
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't submit that review.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/40 p-4">
+      <Card className="w-full max-w-sm p-5">
+        <CardContent className="flex flex-col gap-4 p-0">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-navy-900">Rate this tenant</h3>
+            <button type="button" onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" onClick={() => setRating(n)}>
+                <Star
+                  className={`h-6 w-6 ${n <= rating ? "fill-orange-400 text-orange-400" : "text-neutral-300"}`}
+                />
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Optional comment"
+            rows={3}
+            className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-sm text-navy-900 placeholder:text-neutral-600/60 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
+          />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <Button onClick={handleSubmit} disabled={rating < 1 || submitting} className="w-full">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit review"}
+          </Button>
+          <p className="text-[10px] text-neutral-400">
+            3★ and up adds RGE credit for this tenant, once every 30 days.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

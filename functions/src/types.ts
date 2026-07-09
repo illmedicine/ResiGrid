@@ -127,6 +127,46 @@ export interface ReputationScoreDoc {
   currentStreak: number;
   badges: BadgeDoc[];
   score: number;
+  taskBonusPoints?: number;
+  insuranceLeaseIds?: string[];
+  lastPaystubAt?: number;
+  lastReviewCreditAt?: number;
+  referralQuarterKey?: string;
+  referralsThisQuarter?: number;
+  referredTenantIds?: string[];
+}
+
+export interface ReferralDoc {
+  id: string;
+  referrerId: string;
+  referredTenantId: string;
+  createdAt: number;
+}
+
+export interface TenantReviewDoc {
+  id: string;
+  tenantId: string;
+  pmId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment?: string;
+  createdAt: number;
+}
+
+export interface SharedDocumentDoc {
+  id: string;
+  uploaderId: string;
+  uploaderRole: "tenant" | "property_manager";
+  tenantId: string;
+  pmId: string;
+  unitId?: string;
+  propertyId?: string;
+  name: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: "lease" | "application" | "maintenance" | "other" | "insurance" | "paystub";
+  leaseTermsId?: string;
+  createdAt: number;
 }
 
 export interface MaintenanceRequestDoc {

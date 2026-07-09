@@ -325,6 +325,19 @@ export interface ReputationScoreDoc {
   currentStreak: number;
   badges: BadgeDoc[];
   score: number;
+  /** Sum of all My RGE task credits (insurance/paystub/review/referral) — see [[project_my_rge]]. */
+  taskBonusPoints?: number;
+  /** leaseTermsIds already credited for an insurance upload (1x per lease). */
+  insuranceLeaseIds?: string[];
+  /** ms timestamp of the last paystub credit — gates the 14-day cooldown. */
+  lastPaystubAt?: number;
+  /** ms timestamp of the last qualifying (3★+) PM review credit — gates the 30-day cooldown. */
+  lastReviewCreditAt?: number;
+  /** Calendar-quarter key (e.g. "2026-Q3") the referral counter below applies to. */
+  referralQuarterKey?: string;
+  referralsThisQuarter?: number;
+  /** Referred tenant UIDs already credited — prevents re-crediting the same referral. */
+  referredTenantIds?: string[];
 }
 
 export type MaintenancePriority = "low" | "medium" | "high" | "urgent";
@@ -521,7 +534,27 @@ export interface SharedDocumentDoc {
   url: string;
   mimeType: string;
   sizeBytes: number;
-  category: "lease" | "application" | "maintenance" | "other";
+  category: "lease" | "application" | "maintenance" | "other" | "insurance" | "paystub";
+  /** Set on "insurance" uploads only — used to enforce 1x-per-lease RGE credit. */
+  leaseTermsId?: string;
+  createdAt: number;
+}
+
+/** A tenant vouching for another platform tenant by ID — see [[project_my_rge]]. Written only by the `submitReferral` callable. */
+export interface ReferralDoc {
+  id: string;
+  referrerId: string;
+  referredTenantId: string;
+  createdAt: number;
+}
+
+/** A property manager's star rating of a tenant — 3★+ credits RGE once per rolling 30 days. Immutable once created. */
+export interface TenantReviewDoc {
+  id: string;
+  tenantId: string;
+  pmId: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment?: string;
   createdAt: number;
 }
 

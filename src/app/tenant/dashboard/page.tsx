@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
 import {
+  Award,
   Bell,
   ChevronLeft,
   ChevronRight,
@@ -17,7 +17,6 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/firebase/hooks";
 import { useTenantLeaseContext } from "@/lib/context/TenantLeaseContext";
 import { useCurrentRentInvoice } from "@/lib/hooks/useCurrentRentInvoice";
@@ -28,12 +27,7 @@ import { ReputationSummary } from "@/components/tenant/ReputationSummary";
 import { DaysDueCounter } from "@/components/tenant/DaysDueCounter";
 import { ConfettiCelebration } from "@/components/shared/ConfettiCelebration";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
-
-const RESIDENT_BADGE = {
-  id: "resident",
-  label: "🏠 Resident",
-  description: "Signed a lease and joined the Residential Grid Economy.",
-};
+import { RGEBadgeChip } from "@/components/shared/RGEBadgeChip";
 
 export default function TenantDashboardPage() {
   const { user, userDoc } = useAuth();
@@ -61,34 +55,6 @@ export default function TenantDashboardPage() {
       setShowConfetti(true);
     }
   }, [user, hasSignedLease]);
-
-  // Bootstrap resident badge + 100 RGE pts for tenants with a signed lease who haven't been awarded yet
-  useEffect(() => {
-    if (!user || !hasSignedLease) return;
-    const ref = doc(db, "reputationScores", user.uid);
-    getDoc(ref).then((snap) => {
-      const data = snap.data();
-      if (data?.badges?.some((b: { id: string }) => b.id === "resident")) return;
-      const badge = { ...RESIDENT_BADGE, earnedAt: Date.now() };
-      if (snap.exists()) {
-        updateDoc(ref, {
-          badges: [...(data?.badges ?? []), badge],
-          score: Math.max(data?.score ?? 0, 100),
-        });
-      } else {
-        setDoc(ref, {
-          tenantId: user.uid,
-          onTimeCount: 0,
-          lateCount: 0,
-          totalCount: 0,
-          currentStreak: 0,
-          badges: [badge],
-          score: 100,
-        });
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, hasSignedLease]);
 
   const heroPhotos: string[] = myProperty?.photos ?? [];
 
@@ -271,6 +237,11 @@ export default function TenantDashboardPage() {
         {lease && (
           <div className="flex items-center gap-2">
             <DaysDueCounter dueDate={invoiceDueDate} paid={invoicePaid} />
+            {user && (
+              <Link href="/tenant/rge" className="transition hover:opacity-80">
+                <RGEBadgeChip tenantId={user.uid} />
+              </Link>
+            )}
             <Button href="/tenant/pay" size="sm">
               <Wallet className="h-4 w-4" />
               Pay rent
@@ -367,7 +338,15 @@ export default function TenantDashboardPage() {
       )}
 
       {/* ── RGE Score ────────────────────────────────────────────── */}
-      {user && <ReputationSummary tenantId={user.uid} />}
+      {user && (
+        <div className="flex flex-col gap-2">
+          <ReputationSummary tenantId={user.uid} />
+          <Button href="/tenant/rge" variant="outline" size="sm" className="w-fit self-end">
+            <Award className="h-4 w-4" />
+            Grow your RGE — My RGE
+          </Button>
+        </div>
+      )}
 
       {/* ── More links ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

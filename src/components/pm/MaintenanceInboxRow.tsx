@@ -5,10 +5,12 @@ import { doc, updateDoc } from "firebase/firestore";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/lib/firebase/hooks";
+import { useUserDisplayName } from "@/lib/hooks/useUserDisplayName";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { MaintenanceDMThread } from "@/components/shared/MaintenanceDMThread";
+import { RGEBadgeChip } from "@/components/shared/RGEBadgeChip";
 import type { MaintenanceRequestDoc, MaintenanceStatus } from "@/lib/types/models";
 
 const statusTone: Record<MaintenanceStatus, "neutral" | "warning" | "success" | "navy"> = {
@@ -31,6 +33,7 @@ export function MaintenanceInboxRow({ request }: { request: MaintenanceRequestDo
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const tenantName = useUserDisplayName(request.tenantId);
 
   // Backfill pmId on legacy requests that pre-date this field
   useEffect(() => {
@@ -53,9 +56,13 @@ export function MaintenanceInboxRow({ request }: { request: MaintenanceRequestDo
         {/* ── Header ── */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5">
-            <p className="text-sm font-semibold text-navy-900">
-              {request.category} — {request.item}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-navy-900">
+                {request.category} — {request.item}
+              </p>
+              {tenantName && <RGEBadgeChip tenantId={request.tenantId} />}
+            </div>
+            {tenantName && <p className="text-xs text-neutral-500">{tenantName}</p>}
             {request.affectedRoom && (
               <p className="text-xs text-neutral-500">Room: {request.affectedRoom}</p>
             )}

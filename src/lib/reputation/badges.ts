@@ -65,6 +65,7 @@ export function computeScore(
   currentStreak = 0,
   activeLeaseCount = 1,
   docsSubmitted = 0,
+  taskBonusPoints = 0,
 ): number {
   const total = onTimeCount + lateCount;
   const onTimeRatio = total === 0 ? 0 : onTimeCount / total;
@@ -73,7 +74,7 @@ export function computeScore(
   const streakPoints = Math.min(currentStreak * 8, 200); // consecutive streak
   const leasePoints = Math.max(0, activeLeaseCount - 1) * 60; // extra concurrent leases
   const engagementPoints = Math.min(docsSubmitted * ENGAGEMENT_POINTS_PER_DOC, ENGAGEMENT_POINTS_CAP);
-  return Math.round(basePoints + volumePoints + streakPoints + leasePoints + engagementPoints);
+  return Math.round(basePoints + volumePoints + streakPoints + leasePoints + engagementPoints + taskBonusPoints);
 }
 
 export function earnedBadgeIds(

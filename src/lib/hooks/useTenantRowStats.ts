@@ -9,7 +9,7 @@ import {
   paymentsCol,
   sharedDocumentsCol,
 } from "@/lib/firebase/firestore";
-import type { MaintenanceRequestDoc, PaymentDoc, ReputationScoreDoc, UserDoc } from "@/lib/types/models";
+import type { BadgeDoc, MaintenanceRequestDoc, PaymentDoc, ReputationScoreDoc, UserDoc } from "@/lib/types/models";
 
 export interface TenantRowStats {
   loading: boolean;
@@ -17,6 +17,7 @@ export interface TenantRowStats {
   /** Shared file uploads + applications on file — NOT counting the lease itself. */
   docsSubmitted: number;
   score: number | null;
+  badges: BadgeDoc[];
   tenantCreatedAt: number | null;
   lastCompletedPaymentAt: number | null;
   hasUrgentOpenMaintenance: boolean;
@@ -30,6 +31,7 @@ const EMPTY: TenantRowStats = {
   totalPaid: 0,
   docsSubmitted: 0,
   score: null,
+  badges: [],
   tenantCreatedAt: null,
   lastCompletedPaymentAt: null,
   hasUrgentOpenMaintenance: false,
@@ -114,11 +116,14 @@ export function useTenantRowStats(tenantId: string, pmId: string | undefined): T
       const scoreSnap = scoreResult.status === "fulfilled" ? scoreResult.value : null;
       const userSnap = userResult.status === "fulfilled" ? userResult.value : null;
 
+      const scoreData = scoreSnap?.exists() ? (scoreSnap.data() as ReputationScoreDoc) : null;
+
       setStats({
         loading: false,
         totalPaid,
         docsSubmitted: sharedDocsCount + appsCount,
-        score: scoreSnap?.exists() ? (scoreSnap.data() as ReputationScoreDoc).score : null,
+        score: scoreData?.score ?? null,
+        badges: scoreData?.badges ?? [],
         tenantCreatedAt: userSnap?.exists() ? (userSnap.data() as UserDoc).createdAt ?? null : null,
         lastCompletedPaymentAt: paidDates.length > 0 ? Math.max(...paidDates) : null,
         hasUrgentOpenMaintenance,

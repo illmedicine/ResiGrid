@@ -25,10 +25,12 @@ import type {
   PMTeamInviteDoc,
   PropertyDoc,
   PropertyManagerDoc,
+  ReferralDoc,
   RentInvoiceDoc,
   ReputationScoreDoc,
   SharedDocumentDoc,
   TenantInterestDoc,
+  TenantReviewDoc,
   UnitDoc,
   UserDoc,
   VoucherDoc,
@@ -88,3 +90,6 @@ export const rentInvoicesCol = () =>
   typedCollection<RentInvoiceDoc>("rentInvoices");
 export const externalPaymentClaimsCol = () =>
   typedCollection<ExternalPaymentClaimDoc>("externalPaymentClaims");
+export const referralsCol = () => typedCollection<ReferralDoc>("referrals");
+export const tenantReviewsCol = () =>
+  typedCollection<TenantReviewDoc>("tenantReviews");

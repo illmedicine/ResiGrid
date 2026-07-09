@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/firebase/hooks";
 import { LeasePreviewDoc } from "@/components/pm/lease/LeasePreviewDoc";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { RGEBadgeChip } from "@/components/shared/RGEBadgeChip";
 import type { LeaseTermsDoc } from "@/lib/types/models";
 
 const SIGN_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -134,11 +135,16 @@ function LeaseViewContent() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-navy-900">Lease Agreement</h1>
-          <p className="text-sm text-neutral-600">{lease.tenantName} · Unit {lease.unitId}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-neutral-600">{lease.tenantName} · Unit {lease.unitId}</p>
+            {lease.tenantId && <RGEBadgeChip tenantId={lease.tenantId} />}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge tone={STATUS_TONE[lease.status] as "neutral"}>{lease.status.replace(/_/g, " ")}</Badge>
-          <Button href="/pm/leases/new" variant="outline" size="sm">New lease</Button>
+          {lease.status !== "fully_signed" && (
+            <Button href="/pm/leases/new" variant="outline" size="sm">New lease</Button>
+          )}
           {lease.status === "draft" && (
             <Button size="sm" onClick={handleSend}>
               <Send className="h-4 w-4" /> Send to tenant

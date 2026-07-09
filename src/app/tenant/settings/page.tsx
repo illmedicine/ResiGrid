@@ -130,6 +130,9 @@ export default function TenantSettingsPage() {
           <p className="text-[10px] text-neutral-500 mt-1">
             Tiers: ✦ Spark → 🏠 Resident (100) → ✅ Verified (300) → ⭐ Premier (600) → 👑 Prestige Elite (1000)
           </p>
+          <Button href="/tenant/rge" variant="outline" size="sm" className="w-fit mt-1">
+            View My RGE
+          </Button>
         </CardContent>
       </Card>
 

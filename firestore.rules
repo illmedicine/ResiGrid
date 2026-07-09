@@ -196,7 +196,32 @@ service cloud.firestore {
 
     match /reputationScores/{tenantId} {
       allow read: if isSignedIn();
-      allow write: if isSelf(tenantId);
+      // Cloud-Functions-only: RGE task credits (insurance/paystub/review/
+      // referral cooldowns and quotas) must be server-trusted, or a tenant
+      // could edit their own doc to bypass them.
+      allow write: if false;
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isSignedIn() && (
+        resource.data.referrerId == request.auth.uid ||
+        resource.data.referredTenantId == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    match /tenantReviews/{reviewId} {
+      allow read: if isSignedIn() && (
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(resource.data.pmId)
+      );
+      allow create: if isSignedIn() && (
+        request.resource.data.pmId == request.auth.uid ||
+        isTeamMemberFor(request.resource.data.pmId)
+      );
+      allow update: if false;
+      allow delete: if false;
     }
 
     match /maintenanceRequests/{requestId} {

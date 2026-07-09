@@ -47,7 +47,7 @@ export function residentFloor(activeLeaseCount: number, docsSubmitted = 0): numb
   return RESIDENT_FLOOR + leaseBonus(activeLeaseCount) + engagementBonus(docsSubmitted);
 }
 
-function hasResidentBadge(badges: { id: string }[] | undefined): boolean {
+export function hasResidentBadge(badges: { id: string }[] | undefined): boolean {
   return (badges ?? []).some((b) => b.id === "resident");
 }
 
@@ -64,6 +64,7 @@ export function computeScore(
   currentStreak: number,
   activeLeaseCount: number,
   docsSubmitted = 0,
+  taskBonusPoints = 0,
 ): number {
   const total = onTimeCount + lateCount;
   const onTimeRatio = total === 0 ? 0 : onTimeCount / total;
@@ -71,7 +72,12 @@ export function computeScore(
   const volumePoints = Math.min(onTimeCount * 4, 400);
   const streakPoints = Math.min(currentStreak * 8, 200);
   return Math.round(
-    basePoints + volumePoints + streakPoints + leaseBonus(activeLeaseCount) + engagementBonus(docsSubmitted),
+    basePoints +
+      volumePoints +
+      streakPoints +
+      leaseBonus(activeLeaseCount) +
+      engagementBonus(docsSubmitted) +
+      taskBonusPoints,
   );
 }
 
@@ -106,9 +112,74 @@ export async function recalcTenantScore(tenantId: string): Promise<void> {
     const snap = await tx.get(ref);
     if (!snap.exists) return;
     const existing = snap.data() as ReputationScoreDoc;
-    const raw = computeScore(existing.onTimeCount, existing.lateCount, existing.currentStreak, activeLeaseCount, docsSubmitted);
+    const raw = computeScore(
+      existing.onTimeCount,
+      existing.lateCount,
+      existing.currentStreak,
+      activeLeaseCount,
+      docsSubmitted,
+      existing.taskBonusPoints ?? 0,
+    );
     const score = hasResidentBadge(existing.badges) ? Math.max(raw, residentFloor(activeLeaseCount, docsSubmitted)) : raw;
     tx.update(ref, { score });
+  });
+}
+
+/**
+ * Shared transaction body for the My RGE task-credit functions
+ * (insurance/paystub/review/referral). `mutate` inspects the existing doc and
+ * either returns extra fields to merge in (the credit is applied) or `null`
+ * to skip (already credited / not yet eligible) — the transaction is a no-op
+ * in that case. `taskBonusPoints` is always additive and never touched by
+ * anything else, so concurrent credits from different task types compose
+ * safely.
+ */
+export async function creditTaskBonus(
+  tenantId: string,
+  points: number,
+  mutate: (existing: ReputationScoreDoc | undefined) => Partial<ReputationScoreDoc> | null,
+): Promise<boolean> {
+  const ref = db.collection("reputationScores").doc(tenantId);
+  const [activeLeaseCount, docsSubmitted] = await Promise.all([
+    countActiveLeases(tenantId),
+    countDocsSubmitted(tenantId),
+  ]);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const existing = snap.exists ? (snap.data() as ReputationScoreDoc) : undefined;
+    const extra = mutate(existing);
+    if (extra === null) return false;
+
+    const taskBonusPoints = (existing?.taskBonusPoints ?? 0) + points;
+    const raw = computeScore(
+      existing?.onTimeCount ?? 0,
+      existing?.lateCount ?? 0,
+      existing?.currentStreak ?? 0,
+      activeLeaseCount,
+      docsSubmitted,
+      taskBonusPoints,
+    );
+    const score = hasResidentBadge(existing?.badges)
+      ? Math.max(raw, residentFloor(activeLeaseCount, docsSubmitted))
+      : raw;
+
+    if (existing) {
+      tx.update(ref, { ...extra, taskBonusPoints, score });
+    } else {
+      const baseline: ReputationScoreDoc = {
+        tenantId,
+        onTimeCount: 0,
+        lateCount: 0,
+        totalCount: 0,
+        currentStreak: 0,
+        badges: [],
+        taskBonusPoints,
+        score,
+        ...extra,
+      };
+      tx.set(ref, baseline);
+    }
+    return true;
   });
 }
 
@@ -150,8 +221,17 @@ export const recalcReputationOnPayment = onDocumentCreated(
         })),
       ];
 
-      const rawScore = computeScore(onTimeCount, lateCount, currentStreak, activeLeaseCount, docsSubmitted);
+      const taskBonusPoints = existing?.taskBonusPoints ?? 0;
+      const rawScore = computeScore(
+        onTimeCount,
+        lateCount,
+        currentStreak,
+        activeLeaseCount,
+        docsSubmitted,
+        taskBonusPoints,
+      );
       const updated: ReputationScoreDoc = {
+        ...existing,
         tenantId: payment.tenantId,
         onTimeCount,
         lateCount,

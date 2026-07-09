@@ -10,6 +10,8 @@ export { onTeamInviteCreated } from "./team/onInviteCreated";
 export { recalcReputationOnPayment } from "./reputation/recalc";
 export { awardResidentBadge } from "./reputation/awardResidentBadge";
 export { recalcScoreOnApplicationChanged, recalcScoreOnSharedDocumentChanged } from "./reputation/recalcOnDocsChanged";
+export { awardInsuranceCredit, awardPaystubCredit, awardReviewCredit } from "./reputation/awardTaskCredits";
+export { submitReferral } from "./reputation/submitReferral";
 export { notifyOnMaintenanceRequest } from "./maintenance/notify";
 export { notifyOnNewMessage } from "./messaging/notify";
 export { onUserDocCreated } from "./auth/onUserCreate";

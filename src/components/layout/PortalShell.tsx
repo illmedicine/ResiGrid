@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, Landmark, LogOut, Settings, Zap, type LucideIcon } from "lucide-react";
+import { Award, Bell, ChevronDown, Landmark, LogOut, Settings, Zap, type LucideIcon } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { cn } from "@/lib/utils/cn";
 import { signOut } from "@/lib/firebase/auth";
@@ -184,6 +184,16 @@ function ProfileDropdown({ settingsHref, photoURL, displayName, prestige, compac
                   {paymentsConnected ? "● Receiving payments" : "● Set up payments"}
                 </span>
               </span>
+            </Link>
+          )}
+          {prestige && (
+            <Link
+              href="/tenant/rge"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50"
+            >
+              <Award className="h-4 w-4" />
+              My RGE
             </Link>
           )}
           <Link

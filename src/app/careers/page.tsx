@@ -287,7 +287,7 @@ export default function CareersPage() {
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
-                href="https://calendar.app.google/s9BQ28cL3KPsP5Wg6"
+                href="https://calendar.app.google/oEkAaEPLsJPKxkRGA"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-lg bg-white px-7 py-3 text-sm font-bold text-orange-600 hover:bg-orange-50 transition"

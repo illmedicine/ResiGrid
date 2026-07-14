@@ -319,7 +319,9 @@ export default function InvestorsPage() {
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a
-              href="mailto:dwilson@illyrobotic-ai.com?subject=ResiGrid%20Investment%20Inquiry"
+              href="https://calendar.app.google/oEkAaEPLsJPKxkRGA"
+              target="_blank"
+              rel="noopener noreferrer"
               className="rounded-lg bg-orange-500 px-7 py-3 text-sm font-bold text-white hover:bg-orange-600 transition"
             >
               Schedule a Pitch

@@ -427,6 +427,7 @@ export interface PMSubscriptionDoc {
   tierExpiresAt?: number;
   entitlements: PMEntitlement[];
   totalPaid: number;
+  createdAt?: number;
   updatedAt: number;
   invitedVia?: string;
   squareCustomerId?: string;

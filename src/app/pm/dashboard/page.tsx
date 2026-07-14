@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { WatermarkLogo } from "@/components/ui/WatermarkLogo";
 import { PMBadgeSection } from "@/components/pm/PMBadgeSection";
 import { EarlyAdopterWelcome } from "@/components/pm/EarlyAdopterWelcome";
+import { SubscriptionStatusBanner } from "@/components/pm/SubscriptionStatusBanner";
 import { PM_TIERS } from "@/lib/pricing/fees";
 
 export default function PmDashboardPage() {
@@ -37,6 +38,9 @@ export default function PmDashboardPage() {
 
       {/* ── Grid Early Adopter (auto-claim, badge, celebration, revocation) ── */}
       <EarlyAdopterWelcome />
+
+      {/* ── Subscription Status Banner ── */}
+      <SubscriptionStatusBanner uid={user?.uid} />
 
       {/* ── Header ── */}
       <div>

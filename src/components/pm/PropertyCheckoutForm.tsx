@@ -41,13 +41,17 @@ export function PropertyCheckoutForm() {
   const tier = PM_TIERS[selectedTier];
 
   // Load PayPal SDK
+  // Note: The PayPal hosted button (APJ5DLL87ZJWW) is configured in PayPal dashboard
+  // with return URL set to /pm/checkout/success
+  // PayPal will automatically redirect to success page after payment completion
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://www.paypal.com/sdk/js?client-id=BAACVz29C_Abgp2SNMII6zRix5largq7DDTUc1DNnG49p8LQOw2ClZGqRlnURBmpOWkkph_8zKeWIut-jw&components=hosted-buttons&enable-funding=venmo&currency=USD";
     script.async = true;
     script.onload = () => {
       setPaypalLoaded(true);
-      // Render PayPal button
+      // Render PayPal hosted button
+      // The button handles payment processing and will redirect based on PayPal dashboard config
       if ((window as any).paypal) {
         (window as any).paypal.HostedButtons({
           hostedButtonId: "APJ5DLL87ZJWW",
@@ -56,7 +60,6 @@ export function PropertyCheckoutForm() {
     };
     document.body.appendChild(script);
     return () => {
-      // Cleanup script if needed
       if (document.body.contains(script)) {
         document.body.removeChild(script);
       }

@@ -1,4 +1,5 @@
 export { createPMSubscription } from "./payments/pmCheckout";
+export { paypalWebhook } from "./payments/paypalWebhook";
 export { createVoucher } from "./payments/createVoucher";
 export { claimVoucher } from "./payments/claimVoucher";
 export { getVoucherPreview } from "./payments/getVoucherPreview";

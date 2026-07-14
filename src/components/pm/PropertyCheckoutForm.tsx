@@ -1,18 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { httpsCallable } from "firebase/functions";
 import { Building2, CheckCircle2 } from "lucide-react";
-import { functions } from "@/lib/firebase/config";
-import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { SquareCardField } from "@/components/tenant/SquareCardField";
 import { PM_TIERS, TIER_ORDER, type PMTier } from "@/lib/pricing/fees";
-import type { SquareCard } from "@/lib/square/client";
 
 const schema = z.object({
   propertyName: z.string().optional(),
@@ -28,21 +23,14 @@ const schema = z.object({
 type FormInput = z.input<typeof schema>;
 type FormValues = z.output<typeof schema>;
 
-interface CreatePMSubscriptionResponse {
-  propertyId?: string;
-  amountCharged: number;
-}
-
 export function PropertyCheckoutForm() {
   const router = useRouter();
   const [selectedTier, setSelectedTier] = useState<PMTier>("starter");
-  const [card, setCard] = useState<SquareCard | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paypalLoaded, setPaypalLoaded] = useState(false);
 
   const {
     register,
-    handleSubmit,
     watch,
     formState: { errors },
   } = useForm<FormInput, unknown, FormValues>({
@@ -50,59 +38,33 @@ export function PropertyCheckoutForm() {
   });
 
   const termsAgreed = watch("termsAgreed");
-
   const tier = PM_TIERS[selectedTier];
 
-  async function onSubmit(values: FormValues) {
-    if (!card) {
-      setError("Card field is still loading — try again in a moment.");
-      return;
-    }
-    setError(null);
-    setSubmitting(true);
-    try {
-      const tokenResult = await card.tokenize();
-      if (tokenResult.status !== "OK" || !tokenResult.token) {
-        throw new Error(tokenResult.errors?.[0]?.message ?? "Card was declined.");
+  // Load PayPal SDK
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://www.paypal.com/sdk/js?client-id=BAACVz29C_Abgp2SNMII6zRix5largq7DDTUc1DNnG49p8LQOw2ClZGqRlnURBmpOWkkph_8zKeWIut-jw&components=hosted-buttons&enable-funding=venmo&currency=USD";
+    script.async = true;
+    script.onload = () => {
+      setPaypalLoaded(true);
+      // Render PayPal button
+      if ((window as any).paypal) {
+        (window as any).paypal.HostedButtons({
+          hostedButtonId: "APJ5DLL87ZJWW",
+        }).render("#paypal-container-APJ5DLL87ZJWW");
       }
-
-      const activate = httpsCallable<
-        {
-          sourceId: string;
-          tier: PMTier;
-          propertyName?: string;
-          addressLine1?: string;
-          city?: string;
-          state?: string;
-          zip?: string;
-          unitCount?: number;
-        },
-        CreatePMSubscriptionResponse
-      >(functions, "createPMSubscription");
-
-      await activate({
-        sourceId: tokenResult.token,
-        tier: selectedTier,
-        ...(values.propertyName?.trim() ? {
-          propertyName: values.propertyName.trim(),
-          addressLine1: values.addressLine1?.trim(),
-          city: values.city?.trim(),
-          state: values.state?.trim(),
-          zip: values.zip?.trim(),
-          unitCount: 1,
-        } : {}),
-      });
-
-      router.push("/pm/properties");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed — please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+    };
+    document.body.appendChild(script);
+    return () => {
+      // Cleanup script if needed
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5">
 
       {/* ── Tier selector ── */}
       <div className="flex flex-col gap-2">
@@ -194,12 +156,18 @@ export function PropertyCheckoutForm() {
         </ul>
       </div>
 
-      {/* ── Card field ── */}
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-navy-900">
-          Card details
+      {/* ── PayPal payment button ── */}
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+        <label className="mb-3 block text-sm font-medium text-navy-900">
+          Pay with PayPal
         </label>
-        <SquareCardField onReady={setCard} />
+        {paypalLoaded ? (
+          <div id="paypal-container-APJ5DLL87ZJWW" className="w-full" />
+        ) : (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm text-neutral-600">Loading PayPal...</p>
+          </div>
+        )}
       </div>
 
       {/* ── Terms agreement ── */}
@@ -228,20 +196,11 @@ export function PropertyCheckoutForm() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button
-        type="submit"
-        disabled={submitting || !card || !termsAgreed}
-        size="lg"
-        className="w-full"
-      >
-        {submitting ? "Activating…" : `Pay $${tier.annualFee} & Activate`}
-      </Button>
-
       <p className="text-center text-xs text-neutral-500">
         Recurring annual subscription · Monthly per-unit billing after activation.
-        Payments processed securely by Square.
+        Payments processed securely by PayPal.
       </p>
-    </form>
+    </div>
   );
 }
 

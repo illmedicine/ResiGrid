@@ -67,7 +67,7 @@ interface AdminRecentPayment {
 }
 
 export const adminGetOverview = onCall<{ pin: string }>(
-  { region: "us-central1", cors: ["https://resigrid.co", "https://www.resigrid.co", "http://localhost:3000"] },
+  { region: "us-central1", cors: true },
   async (request) => {
     assertAdmin(request);
 

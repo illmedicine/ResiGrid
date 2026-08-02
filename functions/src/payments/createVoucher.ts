@@ -141,12 +141,25 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
 
     // PM isn't connected yet — save card on file and defer the charge
     // until they claim the voucher (see claimVoucher.ts).
+
+    // Fetch sender details first — needed both for Square customer creation
+    // and for the recipient notification email below.
+    const senderSnap = await db.collection("users").doc(senderId).get();
+    const senderData = senderSnap.data() as UserDoc | undefined;
+    const senderName = senderData?.displayName ?? "Your tenant";
+    const senderNameParts = senderName.trim().split(" ");
+    const senderGivenName = senderNameParts[0] ?? "ResiGrid";
+    const senderFamilyName = senderNameParts.slice(1).join(" ") || "Tenant";
+
     const platform = getSquareClient();
     let customerId: string;
     let cardId: string;
     try {
       const customerResult = await platform.customersApi.createCustomer({
         idempotencyKey: randomUUID(),
+        emailAddress: senderData?.email,
+        givenName: senderGivenName,
+        familyName: senderFamilyName,
         note: `ResiGrid voucher sender ${senderId}`,
       });
       const newCustomerId = customerResult.result.customer?.id;
@@ -188,9 +201,6 @@ export const createVoucher = onCall<CreateVoucherRequest, Promise<CreateVoucherR
 
     // Notify the recipient — non-fatal so the payment always succeeds.
     try {
-      const senderSnap = await db.collection("users").doc(senderId).get();
-      const senderName =
-        (senderSnap.data() as UserDoc | undefined)?.displayName ?? "Your tenant";
       await notifyVoucherRecipient({
         recipientContact: effectiveRecipientContact,
         senderName,
